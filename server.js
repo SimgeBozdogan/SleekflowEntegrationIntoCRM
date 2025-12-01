@@ -9,6 +9,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Static files middleware - CSS, JS, images için
+app.use(express.static(path.join(__dirname)));
+
 // Debug middleware
 app.use((req, res, next) => {
     console.log(`\n🔵 ${req.method} ${req.url}`);
@@ -806,6 +809,16 @@ app.get('/app.js', (req, res) => {
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Polling endpoint (frontend'den polling başlatmak için)
+app.post('/api/polling/start', (req, res) => {
+    console.log('🔄 Polling başlatma isteği alındı');
+    res.json({ 
+        success: true, 
+        message: 'Polling başlatıldı',
+        note: 'Polling frontend tarafında yönetiliyor'
+    });
 });
 
 // SleekFlow Widget sayfası (Zoho için)

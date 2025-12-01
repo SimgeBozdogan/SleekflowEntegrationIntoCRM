@@ -154,9 +154,18 @@
         
         // Zoho Embedded App başlatma
         function initZoho() {
+            // Zoho widget içinde değilsek (normal tarayıcıda açılmışsa) Zoho'yu başlatma
             if (typeof ZOHO === 'undefined') {
-                console.warn('⚠️ ZOHO henüz yüklenmedi, tekrar deneniyor...');
-                setTimeout(initZoho, 1000);
+                // Sadece 3 kez dene, sonra vazgeç
+                if (!window.zohoRetryCount) window.zohoRetryCount = 0;
+                window.zohoRetryCount++;
+                
+                if (window.zohoRetryCount < 3) {
+                    console.log('⏳ ZOHO yükleniyor... (deneme ' + window.zohoRetryCount + '/3)');
+                    setTimeout(initZoho, 2000);
+                } else {
+                    console.log('ℹ️ Zoho widget içinde değil, Zoho SDK atlanıyor');
+                }
                 return;
             }
             
