@@ -679,23 +679,39 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     timestamp = new Date();
                 }
 
-                // Mesaj içeriğini al - tüm olası alanları kontrol et
-                let messageText = m.messageContent || m.text || m.body || m.message || m.content || "";
-                
-                // Eğer mesaj file tipindeyse ve içerik yoksa, file bilgisini göster
+                // MESAJ İÇERİĞİNİ AL - NORMAL MESAJLAŞMA GİBİ
+                let messageText = m.messageContent || m.text || m.body || m.message || m.content || m.caption || "";
                 const messageType = m.messageType || m.type || "text";
-                if ((messageType === "file" || messageType === "image" || messageType === "video" || messageType === "document") && !messageText) {
-                    if (m.uploadedFiles && m.uploadedFiles.length > 0) {
-                        const file = m.uploadedFiles[0];
-                        messageText = `📎 ${file.filename || file.name || 'Dosya'}`;
-                    } else {
-                        messageText = "📎 Dosya";
-                    }
+                
+                // Dosya URL'lerini al
+                let fileUrl = null;
+                let fileName = "";
+                
+                if (m.uploadedFiles && m.uploadedFiles.length > 0) {
+                    const file = m.uploadedFiles[0];
+                    fileUrl = file.url || file.link || null;
+                    fileName = file.filename || file.name || file.url?.split('/').pop() || '';
+                } else if (m.fileURLs && m.fileURLs.length > 0) {
+                    fileUrl = m.fileURLs[0];
+                    fileName = fileUrl.split('/').pop() || '';
+                } else if (messageText && (messageText.includes("Conversation/") || messageText.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|doc|docx|xls|xlsx)$/i))) {
+                    // Eğer messageText bir URL gibi görünüyorsa
+                    fileUrl = messageText;
+                    fileName = messageText.split('/').pop() || messageText.split('\\').pop() || '';
+                    messageText = m.caption || ""; // Caption'ı al
                 }
                 
-                // Eğer hala boşsa ama mesaj varsa, "Mesaj" yaz
-                if (!messageText && m.id) {
-                    messageText = "[Mesaj]";
+                // Dosya mesajı kontrolü
+                const isFileMessage = messageType === "file" || messageType === "image" || messageType === "video" || messageType === "document" || fileUrl;
+                
+                // Eğer dosya mesajıysa ve text yoksa, text'i temizle (sadece dosya gösterilecek)
+                if (isFileMessage && (!messageText || !messageText.trim())) {
+                    messageText = ""; // Caption yoksa boş bırak
+                }
+                
+                // BOŞ MESAJLARI FİLTRELE - SADECE İÇERİĞİ VEYA DOSYASI OLAN MESAJLAR
+                if ((!messageText || !messageText.trim()) && !fileUrl) {
+                    return null; // Ne text ne dosya varsa filtrele
                 }
                 
                 // Sadece ilk 5 mesaj için detaylı log
@@ -711,12 +727,14 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                 return {
                     id: m.id || m.message_id || `msg_${index}`,
                     direction: m.isSentFromSleekflow ? "sent" : "received",
-                    text: messageText,
-                    content: messageText, // Hem text hem content olarak ekle
+                    text: messageText || "", // Text içerik (caption veya normal mesaj)
+                    content: messageText || "", // Hem text hem content olarak ekle
                     timestamp: timestamp,
                     createdAt: timestamp, // Hem timestamp hem createdAt olarak ekle
                     type: messageType,
-                    channel: m.channel || m.channelName || ""
+                    channel: m.channel || m.channelName || "",
+                    fileUrl: fileUrl || null, // Dosya URL'i (video, resim, dosya için)
+                    fileName: fileName || null // Dosya adı
                 };
             } catch (mapError) {
                 console.error(`❌ Mesaj map hatası (index ${index}):`, mapError.message, m);

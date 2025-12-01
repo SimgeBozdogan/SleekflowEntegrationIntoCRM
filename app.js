@@ -582,24 +582,66 @@ function renderMessages(messages) {
             messageEl.className = `message ${msg.direction || 'received'}`;
             messageEl.dataset.messageId = msg.id || `msg_${index}`;
             
-            // Mesaj metnini al - tüm olası alanları kontrol et
-            const messageText = msg.text || msg.content || msg.messageContent || msg.body || msg.message || '';
+            // Mesaj içeriğini al - NORMAL MESAJLAŞMA GİBİ
+            let messageText = msg.text || msg.content || '';
             const messageTime = formatTime(msg.timestamp || msg.createdAt || msg.created_at || new Date());
+            const messageType = msg.type || 'text';
+            const fileUrl = msg.fileUrl || null;
+            const fileName = msg.fileName || '';
             
-            console.log(`📨 Mesaj ${index}:`, {
-                id: msg.id,
-                direction: msg.direction,
-                text: messageText.substring(0, 50),
-                timestamp: msg.timestamp || msg.createdAt
-            });
-            
-            if (!messageText) {
+            // Eğer ne text ne dosya varsa, ATLA
+            if ((!messageText || !messageText.trim()) && !fileUrl) {
                 console.warn(`⚠️ Mesaj ${index} boş, atlanıyor`);
                 return;
             }
             
+            console.log(`📨 Mesaj ${index}:`, {
+                id: msg.id,
+                direction: msg.direction,
+                type: messageType,
+                hasText: !!messageText,
+                hasFile: !!fileUrl
+            });
+            
+            // Mesaj içeriğini oluştur - NORMAL MESAJLAŞMA GİBİ
+            let contentHtml = '';
+            
+            // Dosya varsa göster
+            if (fileUrl) {
+                const isVideo = messageType === "video" || fileUrl.match(/\.(mp4|avi|mov|wmv|webm)$/i);
+                const isImage = messageType === "image" || fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                const isAudio = fileUrl.match(/\.(mp3|wav|ogg|m4a)$/i);
+                
+                if (isVideo) {
+                    // Video player göster
+                    contentHtml += `<video controls style="max-width: 100%; border-radius: 8px; margin-bottom: 8px;">
+                        <source src="${escapeHtml(fileUrl)}" type="video/mp4">
+                        Tarayıcınız video oynatmayı desteklemiyor.
+                    </video>`;
+                } else if (isImage) {
+                    // Resim göster
+                    contentHtml += `<img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName || 'Resim')}" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: pointer;" onclick="window.open('${escapeHtml(fileUrl)}', '_blank')">`;
+                } else if (isAudio) {
+                    // Ses player göster
+                    contentHtml += `<audio controls style="width: 100%; margin-bottom: 8px;">
+                        <source src="${escapeHtml(fileUrl)}" type="audio/mpeg">
+                        Tarayıcınız ses oynatmayı desteklemiyor.
+                    </audio>`;
+                } else {
+                    // Diğer dosyalar için download linki
+                    contentHtml += `<a href="${escapeHtml(fileUrl)}" target="_blank" download style="display: inline-block; padding: 8px 12px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; margin-bottom: 8px;">
+                        📎 ${escapeHtml(fileName || 'Dosya İndir')}
+                    </a>`;
+                }
+            }
+            
+            // Text varsa göster
+            if (messageText && messageText.trim()) {
+                contentHtml += `<div>${escapeHtml(messageText)}</div>`;
+            }
+            
             messageEl.innerHTML = `
-                <div class="message-bubble">${escapeHtml(messageText)}</div>
+                <div class="message-bubble">${contentHtml}</div>
                 <div class="message-time">${messageTime}</div>
             `;
             
