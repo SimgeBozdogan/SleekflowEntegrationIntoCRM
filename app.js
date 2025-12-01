@@ -532,11 +532,21 @@ async function loadMessages(conversationId, silent = false) {
     try {
         const result = await apiRequest(`/sleekflow/conversations/${conversationId}/messages`, 'GET');
         
-        if (result.messages) {
+        console.log('📥 Mesaj response:', result);
+        
+        if (result && result.messages) {
             state.messages[conversationId] = result.messages;
             renderMessages(result.messages);
+        } else if (result && Array.isArray(result)) {
+            // Eğer direkt array döndüyse
+            state.messages[conversationId] = result;
+            renderMessages(result);
+        } else {
+            console.warn('⚠️ Mesajlar boş veya beklenmeyen format:', result);
+            renderMessages([]);
         }
     } catch (error) {
+        console.error('❌ Mesaj yükleme hatası:', error);
         if (!silent) {
             showToast(`Mesajlar yüklenemedi: ${error.message}`, 'error');
         }
@@ -549,27 +559,62 @@ async function loadMessages(conversationId, silent = false) {
 
 function renderMessages(messages) {
     const list = elements.messagesList;
+    if (!list) {
+        console.error('❌ messagesList elementi bulunamadı');
+        return;
+    }
+    
+    console.log('📝 renderMessages çağrıldı, mesaj sayısı:', messages?.length || 0);
+    console.log('📝 Mesajlar:', messages);
+    
+    // Her zaman temizle ve render et
     list.innerHTML = '';
     
     if (!messages || messages.length === 0) {
         list.innerHTML = '<div class="empty-state"><p>Henüz mesaj yok</p></div>';
+        console.log('ℹ️ Mesaj yok, empty state gösteriliyor');
         return;
     }
     
-    messages.forEach(msg => {
-        const messageEl = document.createElement('div');
-        messageEl.className = `message ${msg.direction || 'received'}`;
-        
-        messageEl.innerHTML = `
-            <div class="message-bubble">${escapeHtml(msg.text || msg.content || '')}</div>
-            <div class="message-time">${formatTime(msg.timestamp || msg.createdAt)}</div>
-        `;
-        
-        list.appendChild(messageEl);
+    messages.forEach((msg, index) => {
+        try {
+            const messageEl = document.createElement('div');
+            messageEl.className = `message ${msg.direction || 'received'}`;
+            messageEl.dataset.messageId = msg.id || `msg_${index}`;
+            
+            // Mesaj metnini al - tüm olası alanları kontrol et
+            const messageText = msg.text || msg.content || msg.messageContent || msg.body || msg.message || '';
+            const messageTime = formatTime(msg.timestamp || msg.createdAt || msg.created_at || new Date());
+            
+            console.log(`📨 Mesaj ${index}:`, {
+                id: msg.id,
+                direction: msg.direction,
+                text: messageText.substring(0, 50),
+                timestamp: msg.timestamp || msg.createdAt
+            });
+            
+            if (!messageText) {
+                console.warn(`⚠️ Mesaj ${index} boş, atlanıyor`);
+                return;
+            }
+            
+            messageEl.innerHTML = `
+                <div class="message-bubble">${escapeHtml(messageText)}</div>
+                <div class="message-time">${messageTime}</div>
+            `;
+            
+            list.appendChild(messageEl);
+        } catch (renderError) {
+            console.error(`❌ Mesaj render hatası (index ${index}):`, renderError.message, renderError);
+        }
     });
     
+    console.log(`✅ ${list.children.length} mesaj render edildi`);
+    
     // Scroll to bottom
-    list.scrollTop = list.scrollHeight;
+    setTimeout(() => {
+        list.scrollTop = list.scrollHeight;
+    }, 100);
 }
 
 function escapeHtml(text) {
