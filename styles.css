@@ -57,11 +57,6 @@ body {
     transform: translateX(-100%);
 }
 
-/* Widget için sidebar varsayılan açık */
-body:has(#sidebar) .sidebar {
-    transform: translateX(0);
-}
-
 .sidebar.open {
     transform: translateX(0);
 }

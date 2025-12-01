@@ -682,7 +682,13 @@ async function sendMessage() {
 
 // Sidebar Functions
 function toggleSidebar() {
+    const isOpen = elements.sidebar.classList.contains('open');
     elements.sidebar.classList.toggle('open');
+    
+    // Widget içinde çalışıyorsa sidebar durumunu kaydet
+    if (typeof window !== 'undefined' && window.location.pathname.includes('/widget')) {
+        localStorage.setItem('sidebarClosed', isOpen ? 'true' : 'false');
+    }
 }
 
 // Event Listeners

@@ -295,13 +295,19 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=9"></script>
+    <script src="app.js?v=10"></script>
     <script>
-        // Sidebar'ı widget için varsayılan açık yap
+        // Sidebar'ı widget için varsayılan açık yap (sadece ilk yüklemede)
         document.addEventListener('DOMContentLoaded', function() {
             const sidebar = document.getElementById('sidebar');
-            if (sidebar) {
+            if (sidebar && !sidebar.classList.contains('open') && !sidebar.classList.contains('closed')) {
+                // İlk yüklemede açık yap
                 sidebar.classList.add('open');
+                // Kullanıcı kapattıysa localStorage'a kaydet
+                const sidebarClosed = localStorage.getItem('sidebarClosed');
+                if (sidebarClosed === 'true') {
+                    sidebar.classList.remove('open');
+                }
             }
         });
     </script>
