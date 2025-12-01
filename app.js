@@ -415,14 +415,14 @@ async function loadConversations(silent = false) {
     } catch (error) {
         const errorMsg = error.message || 'Bilinmeyen hata';
         
-        // API hatası olsa bile demo veriler gelmeli - backend'de hata durumunda demo döndürüyor
-        // Eğer hata varsa sadece log'la, kullanıcıya gösterme çünkü demo modu devrede
-        
-        console.warn('Load conversations warning (demo modu devrede):', errorMsg);
-        
-        // Hata mesajını göster ama kullanıcıyı engelleme
-        if (!errorMsg.includes('401') && !errorMsg.includes('bağlantısı yok')) {
-            // Sessizce devam et - demo modu zaten çalışıyor
+        // Hata durumunda kullanıcıya bildir
+        if (!silent) {
+            console.error('❌ Konuşmalar yüklenemedi:', errorMsg);
+            if (errorMsg.includes('401') || errorMsg.includes('bağlantısı yok')) {
+                showToast('SleekFlow bağlantısı yok. Lütfen API anahtarınızı girin ve bağlanın.', 'error');
+            } else {
+                showToast(`Konuşmalar yüklenemedi: ${errorMsg}`, 'error');
+            }
         }
     } finally {
         hideLoading();
@@ -516,11 +516,18 @@ async function selectConversation(conversation) {
     await loadMessages(conversation.id);
 }
 
-async function loadMessages(conversationId) {
-    // API bağlantısı olmasa bile demo mesajları göster
-    // if (!state.sleekflow.connected) return;
+async function loadMessages(conversationId, silent = false) {
+    // Bağlantı yoksa mesajları yükleme
+    if (!state.sleekflow.connected) {
+        if (!silent) {
+            console.log('⚠️ SleekFlow bağlantısı yok, mesajlar yüklenmiyor');
+        }
+        return;
+    }
     
-    showLoading();
+    if (!silent) {
+        showLoading();
+    }
     
     try {
         const result = await apiRequest(`/sleekflow/conversations/${conversationId}/messages`, 'GET');
@@ -530,9 +537,13 @@ async function loadMessages(conversationId) {
             renderMessages(result.messages);
         }
     } catch (error) {
-        showToast(`Mesajlar yüklenemedi: ${error.message}`, 'error');
+        if (!silent) {
+            showToast(`Mesajlar yüklenemedi: ${error.message}`, 'error');
+        }
     } finally {
-        hideLoading();
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -685,7 +696,7 @@ async function autoConnect() {
         const savedZohoClientSecret = localStorage.getItem('zohoClientSecret');
         const savedZohoRegion = localStorage.getItem('zohoRegion') || 'com';
         
-        if (savedApiKey && savedApiKey !== 'demo_mode') {
+        if (savedApiKey) {
             // Auto-connect Sleekflow
             const result = await apiRequest('/auto-connect', 'POST', {
                 sleekflowApiKey: savedApiKey,
@@ -812,7 +823,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved state
         loadSavedState();
         
-        // Otomatik olarak konuşmaları yükle (demo modu ile çalışır)
+        // Otomatik olarak konuşmaları yükle (bağlantı varsa)
         console.log('🚀 Sayfa yüklendi, konuşmalar yükleniyor...');
         setTimeout(() => {
             loadConversations().catch(err => {

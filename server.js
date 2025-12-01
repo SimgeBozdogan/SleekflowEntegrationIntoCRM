@@ -356,86 +356,131 @@ app.post("/api/auto-connect", async (req, res) => {
 // 2) Konuşma listesi
 // ============================================
 app.get("/api/sleekflow/conversations", async (req, res) => {
+    const { channel: filterChannel } = req.query;
+    
     try {
-        // DEMO MOD: API key yoksa veya bağlantı başarısızsa demo veriler döndür
+        // API key kontrolü - yoksa hata döndür
         if (!sleekflowApiKey) {
-            console.log("⚠️ API key yok, demo veriler döndürülüyor");
-            const demoConversations = [
-                {
-                    id: 'demo_conv_1',
-                    contactName: 'Ahmet Yılmaz',
-                    lastMessage: 'Merhaba, ürün hakkında bilgi alabilir miyim?',
-                    lastMessageTime: new Date(),
-                    channel: 'WhatsApp',
-                    unreadCount: 2,
-                    phoneNumber: '+905551234567'
-                },
-                {
-                    id: 'demo_conv_2',
-                    contactName: 'Ayşe Demir',
-                    lastMessage: 'Teşekkürler, siparişimi aldım!',
-                    lastMessageTime: new Date(Date.now() - 15 * 60000),
-                    channel: 'Instagram',
-                    unreadCount: 0,
-                    phoneNumber: '+905559876543'
-                },
-                {
-                    id: 'demo_conv_3',
-                    contactName: 'Mehmet Kaya',
-                    lastMessage: 'Fiyat bilgisi alabilir miyim?',
-                    lastMessageTime: new Date(Date.now() - 30 * 60000),
-                    channel: 'Facebook',
-                    unreadCount: 1,
-                    phoneNumber: '+905556543210'
-                }
-            ];
-            return res.json({ conversations: demoConversations });
+            return res.status(401).json({ 
+                error: "Sleekflow bağlantısı yok. Lütfen API anahtarınızı girin ve bağlanın.",
+                conversations: []
+            });
         }
 
-        // Sleekflow conversation endpoint'ine göre ayarla
-        const data = await callSleekflow("get", "/api/conversation", {
-            params: { limit: 50, offset: 0 },
+        // Gerçek SleekFlow API çağrısı - /api/conversation/all endpoint'ini kullan
+        const params = { limit: 100, offset: 0 };
+        if (filterChannel) {
+            params.channel = filterChannel;
+        }
+        
+        const data = await callSleekflow("get", "/api/conversation/all", { params });
+
+        // API'den gelen veriyi parse et
+        const rawConversations = Array.isArray(data) ? data : (data.data || data.items || data.conversations || []);
+        
+        if (!Array.isArray(rawConversations) || rawConversations.length === 0) {
+            return res.json({ conversations: [] });
+        }
+
+        // Channel filtreleme için keyword mapping
+        const channelKeywords = {
+            whatsapp: ['whatsapp', 'whatsapp360dialog', 'whatsappcloudapi'],
+            instagram: ['instagram'],
+            facebook: ['facebook'],
+            sms: ['sms'],
+            line: ['line'],
+            wechat: ['wechat', 'weixin'],
+            web: ['web', 'webclient']
+        };
+
+        // Conversation'ları UI formatına map et
+        let mappedConversations = rawConversations.map((c) => {
+            const userProfile = c.userProfile || {};
+            const firstName = userProfile.firstName || '';
+            const lastName = userProfile.lastName || '';
+            const contactName = `${firstName} ${lastName}`.trim() || 'Bilinmeyen';
+            
+            // Channel bilgisini normalize et
+            const lastMessageChannel = (c.lastMessageChannel || '').toLowerCase();
+            const conversationChannels = (c.conversationChannels || []).map(ch => ch.toLowerCase());
+            const allChannels = [lastMessageChannel, ...conversationChannels].filter(Boolean);
+            
+            // Display channel belirle
+            let displayChannel = 'WhatsApp';
+            if (allChannels.some(ch => ch.includes('instagram'))) {
+                displayChannel = 'Instagram';
+            } else if (allChannels.some(ch => ch.includes('facebook'))) {
+                displayChannel = 'Facebook';
+            } else if (allChannels.some(ch => ch.includes('sms'))) {
+                displayChannel = 'SMS';
+            } else if (allChannels.some(ch => ch.includes('line'))) {
+                displayChannel = 'LINE';
+            } else if (allChannels.some(ch => ch.includes('wechat') || ch.includes('weixin'))) {
+                displayChannel = 'WeChat';
+            } else if (allChannels.some(ch => ch.includes('web'))) {
+                displayChannel = 'Web';
+            } else if (allChannels.some(ch => ch.includes('whatsapp'))) {
+                displayChannel = 'WhatsApp';
+            }
+
+            return {
+                id: c.conversationId || c.id || Math.random().toString(),
+                contactName: contactName,
+                lastMessage: c.lastMessage?.messageContent || c.lastMessage?.text || '',
+                lastMessageTime: c.updatedTime || c.modifiedAt || c.updatedAt || new Date(),
+                channel: displayChannel,
+                rawChannel: lastMessageChannel, // Filtreleme için
+                conversationChannels: allChannels, // Filtreleme için
+                unreadCount: c.unreadMessageCount || 0,
+                phoneNumber: userProfile.phoneNumber || userProfile.phone || '',
+                email: userProfile.email || ''
+            };
         });
 
-        // UI'nin beklediği formata map edelim
-        const raw = data.data || data.items || data.conversations || data || [];
-        const conversations = (Array.isArray(raw) ? raw : []).map((c) => ({
-            id: c.id || c.conversation_id || Math.random().toString(),
-            contactName: c.contactName || c.contact_name || c.contact?.name || c.name || "Bilinmeyen",
-            lastMessage: c.lastMessage || c.last_message || c.latest_message || "",
-            lastMessageTime: c.lastMessageTime || c.last_message_time || c.updatedAt || c.updated_at || new Date(),
-            channel: c.channel || c.platform || "WhatsApp",
-            unreadCount: c.unreadCount || c.unread_count || 0,
-            phoneNumber: c.phoneNumber || c.phone_number || c.contact?.phone || ""
-        }));
+        // Channel filtreleme uygula
+        if (filterChannel && filterChannel.trim() !== '') {
+            const targetChannel = filterChannel.toLowerCase().trim();
+            const keywords = channelKeywords[targetChannel] || [targetChannel];
+            
+            mappedConversations = mappedConversations.filter(conv => {
+                const allChannelsText = [
+                    conv.rawChannel || '',
+                    ...(conv.conversationChannels || [])
+                ].join(' ').toLowerCase();
+                
+                // WhatsApp için özel kontrol
+                if (targetChannel === 'whatsapp') {
+                    return keywords.some(keyword => allChannelsText.includes(keyword));
+                }
+                
+                // Diğer kanallar için - WhatsApp'ı hariç tut
+                if (targetChannel !== 'whatsapp' && allChannelsText.includes('whatsapp')) {
+                    return false;
+                }
+                
+                // Seçilen kanalın keyword'lerini kontrol et
+                return keywords.some(keyword => allChannelsText.includes(keyword));
+            });
+        }
 
-        res.json({ conversations });
+        // Zaman sırasına göre sırala (en yeni üstte)
+        mappedConversations.sort((a, b) => {
+            const timeA = new Date(a.lastMessageTime).getTime();
+            const timeB = new Date(b.lastMessageTime).getTime();
+            return timeB - timeA;
+        });
+
+        console.log(`✅ ${mappedConversations.length} conversation yüklendi`);
+        res.json({ conversations: mappedConversations });
     } catch (err) {
-        console.error("Konuşmalar hatası:", err.message);
+        console.error("❌ Konuşmalar hatası:", err.message);
+        console.error("   Stack:", err.stack);
         
-        // Hata durumunda da demo veriler döndür (kullanıcı UI'ı görebilsin)
-        console.log("⚠️ API hatası, demo veriler döndürülüyor");
-        const demoConversations = [
-            {
-                id: 'demo_conv_1',
-                contactName: 'Ahmet Yılmaz',
-                lastMessage: 'Merhaba, ürün hakkında bilgi alabilir miyim?',
-                lastMessageTime: new Date(),
-                channel: 'WhatsApp',
-                unreadCount: 2,
-                phoneNumber: '+905551234567'
-            },
-            {
-                id: 'demo_conv_2',
-                contactName: 'Ayşe Demir',
-                lastMessage: 'Teşekkürler, siparişimi aldım!',
-                lastMessageTime: new Date(Date.now() - 15 * 60000),
-                channel: 'Instagram',
-                unreadCount: 0,
-                phoneNumber: '+905559876543'
-            }
-        ];
-        return res.json({ conversations: demoConversations });
+        // Hata durumunda boş array döndür, demo veri YOK
+        return res.status(500).json({ 
+            error: "Konuşmalar yüklenemedi: " + err.message,
+            conversations: []
+        });
     }
 });
 
@@ -444,76 +489,52 @@ app.get("/api/sleekflow/conversations", async (req, res) => {
 // ============================================
 app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
     const { id } = req.params;
+    
     try {
-        // DEMO MOD: API key yoksa demo mesajlar döndür
-        if (!sleekflowApiKey || id.startsWith('demo_')) {
-            console.log("⚠️ Demo mesajlar döndürülüyor");
-            const demoMessages = [
-                {
-                    id: 'msg_1',
-                    direction: 'received',
-                    text: 'Merhaba, ürün hakkında bilgi alabilir miyim?',
-                    timestamp: new Date(Date.now() - 2 * 60000),
-                    type: 'text'
-                },
-                {
-                    id: 'msg_2',
-                    direction: 'sent',
-                    text: 'Tabii ki! Hangi ürün hakkında bilgi almak istersiniz?',
-                    timestamp: new Date(Date.now() - 1 * 60000),
-                    type: 'text'
-                },
-                {
-                    id: 'msg_3',
-                    direction: 'received',
-                    text: 'Bahçe mobilyaları hakkında.',
-                    timestamp: new Date(),
-                    type: 'text'
-                }
-            ];
-            return res.json({ messages: demoMessages });
+        // API key kontrolü
+        if (!sleekflowApiKey) {
+            return res.status(401).json({ 
+                error: "Sleekflow bağlantısı yok. Lütfen API anahtarınızı girin ve bağlanın.",
+                messages: []
+            });
         }
 
-        // Sleekflow message endpoint'ine göre ayarla
-        const data = await callSleekflow("get", `/api/conversation/${id}/message`, {
+        // Gerçek SleekFlow API çağrısı - /api/conversation/message/{conversationId}
+        const data = await callSleekflow("get", `/api/conversation/message/${id}`, {
             params: { limit: 100, offset: 0 }
         });
 
-        const raw = data.data || data.messages || data.items || data || [];
-        const messages = (Array.isArray(raw) ? raw : []).map((m) => ({
+        // API'den gelen veriyi parse et
+        const rawMessages = Array.isArray(data) ? data : (data.data || data.messages || data.items || []);
+        
+        if (!Array.isArray(rawMessages) || rawMessages.length === 0) {
+            return res.json({ messages: [] });
+        }
+
+        // Mesajları UI formatına map et
+        const messages = rawMessages.map((m) => ({
             id: m.id || m.message_id || Math.random().toString(),
-            direction: m.direction || (m.from_me || m.fromMe ? "sent" : "received"),
-            text: m.text || m.body || m.message || m.content || "",
-            timestamp: m.timestamp || m.created_at || m.createdAt || m.time || new Date(),
-            type: m.type || "text"
+            direction: m.isSentFromSleekflow ? "sent" : "received",
+            text: m.messageContent || m.text || m.body || m.message || m.content || "",
+            timestamp: m.timestamp ? new Date(m.timestamp * 1000) : (m.createdAt || m.created_at || new Date()),
+            type: m.messageType || m.type || "text",
+            channel: m.channel || m.channelName || ""
         }));
 
-        // Zaman sırasına göre sırala
+        // Zaman sırasına göre sırala (en eski üstte)
         messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
+        console.log(`✅ ${messages.length} mesaj yüklendi (conversation: ${id})`);
         res.json({ messages });
     } catch (err) {
-        console.error("Mesajlar hatası:", err.message);
+        console.error("❌ Mesajlar hatası:", err.message);
+        console.error("   Stack:", err.stack);
         
-        // Hata durumunda da demo mesajlar döndür
-        console.log("⚠️ API hatası, demo mesajlar döndürülüyor");
-        const demoMessages = [
-            {
-                id: 'msg_1',
-                direction: 'received',
-                text: 'Merhaba, ürün hakkında bilgi alabilir miyim?',
-                timestamp: new Date(Date.now() - 2 * 60000),
-                type: 'text'
-            },
-            {
-                id: 'msg_2',
-                direction: 'sent',
-                text: 'Tabii ki! Size nasıl yardımcı olabilirim?',
-                timestamp: new Date(Date.now() - 1 * 60000),
-                type: 'text'
-            }
-        ];
-        return res.json({ messages: demoMessages });
+        // Hata durumunda boş array döndür, demo veri YOK
+        return res.status(500).json({ 
+            error: "Mesajlar yüklenemedi: " + err.message,
+            messages: []
+        });
     }
 });
 
