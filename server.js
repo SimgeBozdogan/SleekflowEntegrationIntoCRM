@@ -1105,17 +1105,29 @@ app.get('/widget', (req, res) => {
 // HEALTH CHECK (Render için)
 // ============================================
 app.get('/health', (req, res) => {
-    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+    console.log('✅ Health check çağrıldı');
+    res.status(200).json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        port: PORT,
+        env: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Root health check (bazı platformlar için)
+app.get('/ping', (req, res) => {
+    res.status(200).json({ status: 'pong' });
 });
 
 // ============================================
 // SERVER START
 // ============================================
-app.listen(PORT, '0.0.0.0', () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server çalışıyor: http://0.0.0.0:${PORT}`);
     console.log(`📱 Sleekflow-Zoho Entegrasyon Arayüzü hazır!`);
     console.log(`\n📡 API Routes:`);
     console.log(`   GET  /health (health check)`);
+    console.log(`   GET  /ping (ping check)`);
     console.log(`   POST /api/sleekflow/connect`);
     console.log(`   GET  /api/sleekflow/conversations`);
     console.log(`   GET  /api/sleekflow/conversations/:id/messages`);
@@ -1123,4 +1135,11 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`   POST /api/zoho/connect`);
     console.log(`   GET  /api/zoho/test`);
     console.log(`\n✅ Backend hazır! Authorization: Bearer formatı kullanılıyor.\n`);
+    console.log(`✅ Health check: http://0.0.0.0:${PORT}/health`);
+});
+
+// Server error handling
+server.on('error', (err) => {
+    console.error('❌ Server hatası:', err);
+    process.exit(1);
 });
