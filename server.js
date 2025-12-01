@@ -680,34 +680,51 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                 }
 
                 // MESAJ İÇERİĞİNİ AL - NORMAL MESAJLAŞMA GİBİ
-                let messageText = m.messageContent || m.text || m.body || m.message || m.content || m.caption || "";
                 const messageType = m.messageType || m.type || "text";
                 
-                // Dosya URL'lerini al
+                // ÖNCE DOSYA URL'LERİNİ KONTROL ET
                 let fileUrl = null;
                 let fileName = "";
                 
+                // 1. uploadedFiles array'inden al
                 if (m.uploadedFiles && m.uploadedFiles.length > 0) {
                     const file = m.uploadedFiles[0];
                     fileUrl = file.url || file.link || null;
                     fileName = file.filename || file.name || file.url?.split('/').pop() || '';
-                } else if (m.fileURLs && m.fileURLs.length > 0) {
+                }
+                
+                // 2. fileURLs array'inden al
+                if (!fileUrl && m.fileURLs && m.fileURLs.length > 0) {
                     fileUrl = m.fileURLs[0];
                     fileName = fileUrl.split('/').pop() || '';
-                } else if (messageText && (messageText.includes("Conversation/") || messageText.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|doc|docx|xls|xlsx)$/i))) {
-                    // Eğer messageText bir URL gibi görünüyorsa
-                    fileUrl = messageText;
-                    fileName = messageText.split('/').pop() || messageText.split('\\').pop() || '';
-                    messageText = m.caption || ""; // Caption'ı al
+                }
+                
+                // 3. messageContent bir dosya URL'i gibi görünüyorsa (Conversation/ ile başlıyorsa veya dosya uzantısı varsa)
+                const rawMessageContent = m.messageContent || "";
+                const isFileUrlInContent = rawMessageContent && (
+                    rawMessageContent.includes("Conversation/") || 
+                    rawMessageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i)
+                );
+                
+                if (!fileUrl && isFileUrlInContent) {
+                    // messageContent bir dosya URL'i, onu fileUrl olarak kullan
+                    fileUrl = rawMessageContent;
+                    fileName = rawMessageContent.split('/').pop() || rawMessageContent.split('\\').pop() || '';
+                }
+                
+                // TEXT İÇERİĞİNİ AL (caption veya normal mesaj)
+                // Eğer messageContent dosya URL'i ise, caption'ı al
+                let messageText = "";
+                if (isFileUrlInContent) {
+                    // messageContent dosya URL'i, caption'ı kontrol et
+                    messageText = m.caption || m.text || m.body || m.message || m.content || "";
+                } else {
+                    // messageContent normal text
+                    messageText = rawMessageContent || m.text || m.body || m.message || m.content || m.caption || "";
                 }
                 
                 // Dosya mesajı kontrolü
                 const isFileMessage = messageType === "file" || messageType === "image" || messageType === "video" || messageType === "document" || fileUrl;
-                
-                // Eğer dosya mesajıysa ve text yoksa, text'i temizle (sadece dosya gösterilecek)
-                if (isFileMessage && (!messageText || !messageText.trim())) {
-                    messageText = ""; // Caption yoksa boş bırak
-                }
                 
                 // BOŞ MESAJLARI FİLTRELE - SADECE İÇERİĞİ VEYA DOSYASI OLAN MESAJLAR
                 if ((!messageText || !messageText.trim()) && !fileUrl) {
