@@ -373,7 +373,7 @@ app.get("/api/sleekflow/conversations", async (req, res) => {
             params.channel = filterChannel;
         }
         
-        console.log('📥 Conversation'lar yükleniyor, params:', params);
+        console.log('📥 Conversationlar yükleniyor, params:', params);
         
         let data;
         try {
