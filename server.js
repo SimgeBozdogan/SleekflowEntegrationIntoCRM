@@ -1046,12 +1046,20 @@ app.get('/widget', (req, res) => {
 });
 
 // ============================================
+// HEALTH CHECK (Render için)
+// ============================================
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============================================
 // SERVER START
 // ============================================
-app.listen(PORT, () => {
-    console.log(`\n🚀 Server çalışıyor: http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n🚀 Server çalışıyor: http://0.0.0.0:${PORT}`);
     console.log(`📱 Sleekflow-Zoho Entegrasyon Arayüzü hazır!`);
     console.log(`\n📡 API Routes:`);
+    console.log(`   GET  /health (health check)`);
     console.log(`   POST /api/sleekflow/connect`);
     console.log(`   GET  /api/sleekflow/conversations`);
     console.log(`   GET  /api/sleekflow/conversations/:id/messages`);
