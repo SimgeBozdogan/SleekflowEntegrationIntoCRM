@@ -587,23 +587,51 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
         console.log(`📥 Mesajlar yükleniyor, conversation ID: ${id}`);
 
         // Gerçek SleekFlow API çağrısı - /api/conversation/message/{conversationId}
-        let data;
-        try {
-            data = await callSleekflow("get", `/api/conversation/message/${id}`, {
-                params: { limit: 100, offset: 0 }
-            });
-            console.log('✅ API Response alındı, type:', typeof data, 'isArray:', Array.isArray(data));
-        } catch (apiError) {
-            console.error('❌ SleekFlow API hatası:', apiError.message);
-            console.error('   Status:', apiError.response?.status);
-            console.error('   Data:', apiError.response?.data);
-            throw apiError;
-        }
-
-        // API'den gelen veriyi parse et
-        const rawMessages = Array.isArray(data) ? data : (data.data || data.messages || data.items || []);
+        // TÜM MESAJLARI ÇEKMEK İÇİN PAGINATION YAP
+        let allRawMessages = [];
+        let offset = 0;
+        const limit = 1000; // Maksimum limit
+        let hasMore = true;
         
-        console.log('📊 Raw messages sayısı:', rawMessages.length);
+        console.log('📥 Tüm mesajlar çekiliyor (pagination)...');
+        
+        while (hasMore) {
+            try {
+                const data = await callSleekflow("get", `/api/conversation/message/${id}`, {
+                    params: { limit: limit, offset: offset }
+                });
+                
+                const batchMessages = Array.isArray(data) ? data : (data.data || data.messages || data.items || []);
+                console.log(`   📦 Offset ${offset}: ${batchMessages.length} mesaj alındı`);
+                
+                if (batchMessages.length === 0) {
+                    hasMore = false;
+                } else {
+                    allRawMessages = allRawMessages.concat(batchMessages);
+                    
+                    // Eğer gelen mesaj sayısı limit'ten azsa, daha fazla yok demektir
+                    if (batchMessages.length < limit) {
+                        hasMore = false;
+                    } else {
+                        offset += limit;
+                    }
+                }
+            } catch (apiError) {
+                console.error('❌ SleekFlow API hatası (pagination):', apiError.message);
+                console.error('   Status:', apiError.response?.status);
+                console.error('   Data:', apiError.response?.data);
+                
+                // İlk çağrıda hata olursa throw et, sonraki çağrılarda dur
+                if (offset === 0) {
+                    throw apiError;
+                } else {
+                    hasMore = false;
+                }
+            }
+        }
+        
+        const rawMessages = allRawMessages;
+        console.log(`✅ Toplam ${rawMessages.length} mesaj çekildi`);
         
         if (!Array.isArray(rawMessages)) {
             console.error('❌ Raw messages array değil:', typeof rawMessages, rawMessages);
@@ -617,8 +645,16 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
             console.log('ℹ️ Mesaj bulunamadı');
             return res.json({ messages: [] });
         }
+        
+        console.log(`📊 İlk 3 mesaj örneği:`, rawMessages.slice(0, 3).map(m => ({
+            id: m.id,
+            messageContent: m.messageContent?.substring(0, 50),
+            messageType: m.messageType,
+            hasText: !!(m.messageContent || m.text || m.body || m.message || m.content)
+        })));
 
-        // Mesajları UI formatına map et
+        // Mesajları UI formatına map et - TÜM MESAJLARI EKLE, HİÇBİRİNİ KAYBETME
+        console.log(`🔄 ${rawMessages.length} mesaj map ediliyor...`);
         const messages = rawMessages.map((m, index) => {
             try {
                 // Timestamp'i parse et
@@ -644,17 +680,33 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                 }
 
                 // Mesaj içeriğini al - tüm olası alanları kontrol et
-                const messageText = m.messageContent || m.text || m.body || m.message || m.content || "";
+                let messageText = m.messageContent || m.text || m.body || m.message || m.content || "";
                 
-                console.log(`📨 Raw mesaj ${index}:`, {
-                    id: m.id,
-                    messageContent: m.messageContent,
-                    text: m.text,
-                    body: m.body,
-                    isSentFromSleekflow: m.isSentFromSleekflow,
-                    timestamp: m.timestamp,
-                    createdAt: m.createdAt
-                });
+                // Eğer mesaj file tipindeyse ve içerik yoksa, file bilgisini göster
+                const messageType = m.messageType || m.type || "text";
+                if ((messageType === "file" || messageType === "image" || messageType === "video" || messageType === "document") && !messageText) {
+                    if (m.uploadedFiles && m.uploadedFiles.length > 0) {
+                        const file = m.uploadedFiles[0];
+                        messageText = `📎 ${file.filename || file.name || 'Dosya'}`;
+                    } else {
+                        messageText = "📎 Dosya";
+                    }
+                }
+                
+                // Eğer hala boşsa ama mesaj varsa, "Mesaj" yaz
+                if (!messageText && m.id) {
+                    messageText = "[Mesaj]";
+                }
+                
+                // Sadece ilk 5 mesaj için detaylı log
+                if (index < 5) {
+                    console.log(`📨 Raw mesaj ${index}:`, {
+                        id: m.id,
+                        messageContent: m.messageContent?.substring(0, 30),
+                        messageType: messageType,
+                        finalText: messageText.substring(0, 30)
+                    });
+                }
 
                 return {
                     id: m.id || m.message_id || `msg_${index}`,
@@ -663,19 +715,23 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     content: messageText, // Hem text hem content olarak ekle
                     timestamp: timestamp,
                     createdAt: timestamp, // Hem timestamp hem createdAt olarak ekle
-                    type: m.messageType || m.type || "text",
+                    type: messageType,
                     channel: m.channel || m.channelName || ""
                 };
             } catch (mapError) {
                 console.error(`❌ Mesaj map hatası (index ${index}):`, mapError.message, m);
                 return null;
             }
-        }).filter(msg => msg !== null && msg.text); // null ve boş mesajları filtrele
+        }).filter(msg => msg !== null); // Sadece null olanları filtrele, TÜM mesajları göster (boş olsa bile)
 
+        console.log(`📊 Map sonrası: ${messages.length} mesaj (başlangıç: ${rawMessages.length})`);
+        
         // Zaman sırasına göre sırala (en eski üstte)
         messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-        console.log(`✅ ${messages.length} mesaj yüklendi (conversation: ${id})`);
+        console.log(`✅ ${messages.length} mesaj yüklendi ve gönderiliyor (conversation: ${id})`);
+        console.log(`📋 Mesaj ID'leri:`, messages.slice(0, 10).map(m => m.id).join(', '), messages.length > 10 ? '...' : '');
+        
         res.json({ messages });
     } catch (err) {
         console.error("❌ Mesajlar hatası:", err.message);
