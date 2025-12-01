@@ -4,7 +4,4 @@ node_modules/
 *.log
 .vscode/
 .idea/
-uploads/
-*.tmp
-*.temp
 

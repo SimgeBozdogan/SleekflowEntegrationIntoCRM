@@ -50,7 +50,7 @@ const elements = {
     sendMessage: document.getElementById('sendMessage'),
     fileInput: document.getElementById('fileInput'),
     attachFile: document.getElementById('attachFile'),
-    selectedFiles: document.getElementById('selectedFiles'),
+    selectedFilesContainer: document.getElementById('selectedFilesContainer'),
     chatContactName: document.getElementById('chatContactName'),
     chatMeta: document.getElementById('chatMeta'),
     chatAvatar: document.getElementById('chatAvatar'),
@@ -224,15 +224,13 @@ async function connectSleekflow() {
                           `💡 ${result.suggestion || 'Base URL\'i kontrol edin'}`;
             } else if (result.status === 401 || result.status === 403) {
                 // API anahtarı geçersiz
-                errorMsg = `✅ Endpoint bulundu! ❌ Ancak Platform API anahtarı geçersiz.\n\n` +
+                errorMsg = `✅ Endpoint bulundu! ❌ Ancak API anahtarı geçersiz.\n\n` +
                           `📋 YAPILMASI GEREKEN:\n` +
-                          `1. SleekFlow hesabınıza Admin yetkisiyle giriş yapın\n` +
-                          `2. Sol navigasyon çubuğunda ⚙️ (Ayarlar) ikonuna tıklayın\n` +
-                          `3. "Direct API" altında "Platform API" seçeneğini bulun\n` +
-                          `4. "Connect" butonuna tıklayın\n` +
-                          `5. "Your unique API key" altındaki anahtarı kopyalayın\n` +
-                          `6. Yeni key'i buraya yapıştırın ve tekrar deneyin\n\n` +
-                          `💡 İpucu: API anahtarınızı yenilemek için "Refresh API key" butonunu kullanabilirsiniz.`;
+                          `1. Sleekflow hesabınıza giriş yapın\n` +
+                          `2. Channels > Add integrations > API bölümüne gidin\n` +
+                          `3. YENİ bir API key oluşturun\n` +
+                          `4. Yeni key'i kopyalayıp buraya yapıştırın\n\n` +
+                          `⚠️ Not: Eski key geçersiz görünüyor. Yeni key oluşturmanız gerekiyor.`;
             } else if (result.status === 500) {
                 // Sunucu hatası
                 errorMsg = `❌ Sleekflow sunucu hatası!\n\n` +
@@ -277,11 +275,11 @@ async function connectSleekflow() {
     } catch (error) {
         // Check if endpoint was found but API key is invalid
         if (error.endpointFound) {
-            showToast('✅ Endpoint bulundu! Ancak Platform API anahtarı geçersiz. Lütfen SleekFlow hesabınızdan doğru Platform API anahtarını alın (Ayarlar > Direct API > Platform API > Connect).', 'warning');
+            showToast('✅ Endpoint bulundu! Ancak API anahtarı geçersiz. Lütfen Sleekflow hesabınızdan doğru API anahtarını alın.', 'warning');
             console.log('✅ Endpoint bulundu:', error.details?.triedUrl || 'https://api.sleekflow.io/api/contact');
             console.log('❌ API anahtarı geçersiz:', error.details);
         } else if (error.message.includes('endpointFound') || error.message.includes('Endpoint bulundu')) {
-            showToast('✅ Endpoint bulundu! Ancak Platform API anahtarı geçersiz. Lütfen doğru Platform API anahtarını girin.', 'warning');
+            showToast('✅ Endpoint bulundu! Ancak API anahtarı geçersiz. Lütfen doğru API anahtarını girin.', 'warning');
         } else {
             showToast(`Bağlantı hatası: ${error.message}`, 'error');
         }
@@ -399,48 +397,35 @@ async function loadConversations(silent = false) {
         
         const result = await apiRequest(url, 'GET');
         
-        if (!silent) {
-            console.log('✅ Konuşmalar alındı:', result);
-        }
+        console.log('✅ Konuşmalar alındı:', result);
         
         if (result && result.conversations) {
-            // Mevcut conversation'ları kontrol et - değişiklik var mı?
-            const currentConvs = state.conversations || [];
-            const newConvs = result.conversations;
+            state.conversations = result.conversations;
+            console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
+            renderConversations();
             
-            // Conversation sayısı veya ilk conversation ID'si değiştiyse render et
-            const hasChanged = currentConvs.length !== newConvs.length || 
-                             (currentConvs.length > 0 && newConvs.length > 0 && 
-                              currentConvs[0].id !== newConvs[0].id);
-            
-            if (hasChanged || !silent) {
-                // Değişiklik varsa veya ilk yükleme ise render et
-                state.conversations = newConvs;
-                if (!silent) {
-                    console.log(`✅ ${newConvs.length} konuşma yüklendi`);
-                }
-                renderConversations();
+            // Zoho widget içinde çalışıyorsa, conversation'lar yüklendiğini bildir
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('conversationsLoaded'));
             }
-            // Değişiklik yoksa ve sessiz mod ise hiçbir şey yapma
         } else {
-            if (!silent) {
-                console.warn('⚠️ Konuşmalar bulunamadı');
-            }
-            if (state.conversations.length === 0) {
-                renderConversations(); // Sadece boşsa göster
-            }
+            console.warn('⚠️ Konuşmalar bulunamadı');
+            renderConversations(); // Boş liste göster
         }
     } catch (error) {
         const errorMsg = error.message || 'Bilinmeyen hata';
-        if (!silent) {
-            console.error('Konuşmalar yüklenirken hata:', errorMsg);
+        
+        // API hatası olsa bile demo veriler gelmeli - backend'de hata durumunda demo döndürüyor
+        // Eğer hata varsa sadece log'la, kullanıcıya gösterme çünkü demo modu devrede
+        
+        console.warn('Load conversations warning (demo modu devrede):', errorMsg);
+        
+        // Hata mesajını göster ama kullanıcıyı engelleme
+        if (!errorMsg.includes('401') && !errorMsg.includes('bağlantısı yok')) {
+            // Sessizce devam et - demo modu zaten çalışıyor
         }
-        // Sessizce devam et, kullanıcıya gösterme
-        renderConversations(); // Boş liste göster
     } finally {
-        if (!silent) {
-            hideLoading();
-        }
+        hideLoading();
     }
 }
 
@@ -528,134 +513,52 @@ async function selectConversation(conversation) {
     elements.messageInput.disabled = false;
     elements.sendMessage.disabled = false;
     
-    // Sessizce yükle - loading gösterme
-    await loadMessages(conversation.id, true); // silent = true
+    await loadMessages(conversation.id);
 }
 
-async function loadMessages(conversationId, silent = false) {
-    if (!state.sleekflow.connected) return;
+async function loadMessages(conversationId) {
+    // API bağlantısı olmasa bile demo mesajları göster
+    // if (!state.sleekflow.connected) return;
     
-    if (!silent) {
-        showLoading();
-    }
+    showLoading();
     
     try {
         const result = await apiRequest(`/sleekflow/conversations/${conversationId}/messages`, 'GET');
         
         if (result.messages) {
-            // Mevcut mesajları kontrol et - değişiklik var mı?
-            const currentMessages = state.messages[conversationId] || [];
-            const newMessages = result.messages;
-            
-            // Mesaj sayısı kontrolü
-            if (currentMessages.length !== newMessages.length) {
-                // Mesaj sayısı değişti - yeni mesaj var
-                state.messages[conversationId] = newMessages;
-                renderMessages(newMessages, silent);
-            } else if (currentMessages.length > 0 && newMessages.length > 0) {
-                // Son mesaj ID'si kontrolü
-                const lastCurrentId = String(currentMessages[currentMessages.length - 1].id || '');
-                const lastNewId = String(newMessages[newMessages.length - 1].id || '');
-                
-                if (lastCurrentId !== lastNewId) {
-                    // Yeni mesaj var
-                    state.messages[conversationId] = newMessages;
-                    renderMessages(newMessages, silent);
-                } else if (!silent) {
-                    // İlk yükleme veya manuel refresh - render et
-                    state.messages[conversationId] = newMessages;
-                    renderMessages(newMessages, false);
-                }
-                // Değişiklik yok ve silent mod ise hiçbir şey yapma
-            } else if (!silent) {
-                // İlk yükleme - render et
-                state.messages[conversationId] = newMessages;
-                renderMessages(newMessages, false);
-            }
+            state.messages[conversationId] = result.messages;
+            renderMessages(result.messages);
         }
     } catch (error) {
-        if (!silent) {
-            showToast(`Mesajlar yüklenemedi: ${error.message}`, 'error');
-        }
+        showToast(`Mesajlar yüklenemedi: ${error.message}`, 'error');
     } finally {
-        if (!silent) {
-            hideLoading();
-        }
+        hideLoading();
     }
 }
 
-function renderMessages(messages, preserveScroll = false) {
+function renderMessages(messages) {
     const list = elements.messagesList;
+    list.innerHTML = '';
     
     if (!messages || messages.length === 0) {
-        if (list.children.length === 0 || list.querySelector('.empty-state')) {
-            list.innerHTML = '<div class="empty-state"><p>Henüz mesaj yok</p></div>';
-        }
+        list.innerHTML = '<div class="empty-state"><p>Henüz mesaj yok</p></div>';
         return;
     }
     
-    // Scroll pozisyonunu koru (eğer preserveScroll true ise)
-    const wasAtBottom = preserveScroll && (list.scrollHeight - list.scrollTop - list.clientHeight < 50);
-    const oldScrollTop = list.scrollTop;
-    const oldScrollHeight = list.scrollHeight;
-    
-    // Mevcut mesaj ID'lerini al
-    const existingMessageIds = new Set();
-    list.querySelectorAll('.message[data-message-id]').forEach(msgEl => {
-        const msgId = msgEl.getAttribute('data-message-id');
-        if (msgId) existingMessageIds.add(msgId);
-    });
-    
-    // Eğer hiç mesaj yoksa tümünü render et
-    if (existingMessageIds.size === 0) {
-        list.innerHTML = '';
-        messages.forEach(msg => {
-            const msgId = String(msg.id || Math.random());
-            const messageEl = document.createElement('div');
-            messageEl.className = `message ${msg.direction || 'received'}`;
-            messageEl.setAttribute('data-message-id', msgId);
-            
-            messageEl.innerHTML = `
-                <div class="message-bubble">${escapeHtml(msg.text || msg.content || '')}</div>
-                <div class="message-time">${formatTime(msg.timestamp || msg.createdAt)}</div>
-            `;
-            
-            list.appendChild(messageEl);
-        });
-        // İlk yüklemede en alta kaydır
-        list.scrollTop = list.scrollHeight;
-        return;
-    }
-    
-    // Yeni mesajları kontrol et ve sadece yeni olanları ekle
-    let hasNewMessages = false;
     messages.forEach(msg => {
-        const msgId = String(msg.id || Math.random());
-        if (!existingMessageIds.has(msgId)) {
-            hasNewMessages = true;
-            const messageEl = document.createElement('div');
-            messageEl.className = `message ${msg.direction || 'received'}`;
-            messageEl.setAttribute('data-message-id', msgId);
-            
-            messageEl.innerHTML = `
-                <div class="message-bubble">${escapeHtml(msg.text || msg.content || '')}</div>
-                <div class="message-time">${formatTime(msg.timestamp || msg.createdAt)}</div>
-            `;
-            
-            list.appendChild(messageEl);
-        }
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${msg.direction || 'received'}`;
+        
+        messageEl.innerHTML = `
+            <div class="message-bubble">${escapeHtml(msg.text || msg.content || '')}</div>
+            <div class="message-time">${formatTime(msg.timestamp || msg.createdAt)}</div>
+        `;
+        
+        list.appendChild(messageEl);
     });
     
-    // Scroll pozisyonunu koru veya en alta kaydır
-    if (hasNewMessages) {
-        // Yeni mesaj varsa en alta kaydır
-        list.scrollTop = list.scrollHeight;
-    } else if (preserveScroll && !wasAtBottom) {
-        // Kullanıcı yukarıda scroll yapmışsa pozisyonu koru
-        const newScrollHeight = list.scrollHeight;
-        const scrollDiff = newScrollHeight - oldScrollHeight;
-        list.scrollTop = oldScrollTop + scrollDiff;
-    }
+    // Scroll to bottom
+    list.scrollTop = list.scrollHeight;
 }
 
 function escapeHtml(text) {
@@ -664,6 +567,46 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// File handling functions
+let selectedFiles = [];
+
+function handleFileSelect(e) {
+    const files = Array.from(e.target.files);
+    selectedFiles = [...selectedFiles, ...files];
+    updateSelectedFiles();
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateSelectedFiles();
+    // File input'u sıfırla
+    if (elements.fileInput) {
+        elements.fileInput.value = '';
+    }
+}
+
+function updateSelectedFiles() {
+    const container = elements.selectedFilesContainer;
+    if (!container) return;
+    
+    if (selectedFiles.length === 0) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+        return;
+    }
+    
+    container.style.display = 'block';
+    container.innerHTML = selectedFiles.map((file, index) => `
+        <div class="selected-file-item" style="display: flex; align-items: center; gap: 8px; padding: 8px; background: #f3f4f6; border-radius: 6px; margin-top: 8px;">
+            <span style="font-size: 0.875rem;">📎 ${file.name}</span>
+            <button onclick="removeFile(${index})" style="background: #ef4444; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem;">✕</button>
+        </div>
+    `).join('');
+}
+
+// Make removeFile globally accessible
+window.removeFile = removeFile;
+
 async function sendMessage() {
     if (!state.currentConversation) {
         showToast('Lütfen bir konuşma seçin', 'warning');
@@ -671,10 +614,9 @@ async function sendMessage() {
     }
     
     const text = elements.messageInput.value.trim();
-    const files = elements.fileInput.files;
+    const hasFiles = selectedFiles.length > 0;
     
-    // Text veya dosya olmalı
-    if (!text && files.length === 0) {
+    if (!text && !hasFiles) {
         showToast('Lütfen mesaj yazın veya dosya seçin', 'warning');
         return;
     }
@@ -682,31 +624,29 @@ async function sendMessage() {
     showLoading();
     
     try {
-        // FormData oluştur (dosya varsa)
         let result;
-        if (files.length > 0) {
+        
+        if (hasFiles) {
+            // Dosya gönderme - FormData kullan
             const formData = new FormData();
             formData.append('text', text || '');
+            selectedFiles.forEach((file, index) => {
+                formData.append('files', file);
+            });
             
-            // Dosyaları ekle
-            for (let i = 0; i < files.length; i++) {
-                formData.append('files', files[i]);
-            }
-            
-            // Multipart/form-data ile gönder
-            const response = await fetch(`${API_BASE_URL}/sleekflow/conversations/${state.currentConversation.id}/messages`, {
+            result = await fetch(`${API_BASE_URL}/sleekflow/conversations/${state.currentConversation.id}/messages`, {
                 method: 'POST',
                 body: formData
             });
             
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || `HTTP ${response.status}`);
+            if (!result.ok) {
+                const errorData = await result.json().catch(() => ({ error: 'Dosya gönderilemedi' }));
+                throw new Error(errorData.error || 'Dosya gönderilemedi');
             }
             
-            result = await response.json();
+            result = await result.json();
         } else {
-            // Sadece text - JSON ile gönder
+            // Sadece metin gönderme
             result = await apiRequest(`/sleekflow/conversations/${state.currentConversation.id}/messages`, 'POST', {
                 text
             });
@@ -714,58 +654,20 @@ async function sendMessage() {
         
         // Temizle
         elements.messageInput.value = '';
-        elements.fileInput.value = '';
+        selectedFiles = [];
         updateSelectedFiles();
         
-        // Reload messages - sessizce yükle
-        await loadMessages(state.currentConversation.id, true); // silent = true
-        await loadConversations(true); // silent = true
+        // Reload messages
+        await loadMessages(state.currentConversation.id);
+        await loadConversations(); // Refresh conversation list
         
-        showToast('Mesaj gönderildi', 'success');
+        showToast(hasFiles ? 'Dosya ve mesaj gönderildi' : 'Mesaj gönderildi', 'success');
     } catch (error) {
         showToast(`Mesaj gönderilemedi: ${error.message}`, 'error');
     } finally {
         hideLoading();
     }
 }
-
-// Sender Functions
-
-function updateSelectedFiles() {
-    const files = elements.fileInput.files;
-    const selectedFilesDiv = elements.selectedFiles;
-    
-    if (files.length === 0) {
-        selectedFilesDiv.style.display = 'none';
-        selectedFilesDiv.innerHTML = '';
-        return;
-    }
-    
-    selectedFilesDiv.style.display = 'block';
-    const fileList = Array.from(files).map((file, index) => 
-        `<span style="display: inline-block; margin-right: 10px; padding: 3px 8px; background: #e0e7ff; border-radius: 4px; font-size: 11px;">
-            📎 ${file.name} (${(file.size / 1024).toFixed(1)} KB)
-            <button onclick="removeFile(${index})" style="margin-left: 5px; border: none; background: none; cursor: pointer; color: #666;">✕</button>
-        </span>`
-    ).join('');
-    
-    selectedFilesDiv.innerHTML = fileList;
-}
-
-// Global function for removing files
-window.removeFile = function(index) {
-    const dt = new DataTransfer();
-    const files = elements.fileInput.files;
-    
-    for (let i = 0; i < files.length; i++) {
-        if (i !== index) {
-            dt.items.add(files[i]);
-        }
-    }
-    
-    elements.fileInput.files = dt.files;
-    updateSelectedFiles();
-};
 
 // Sidebar Functions
 function toggleSidebar() {
@@ -783,7 +685,7 @@ async function autoConnect() {
         const savedZohoClientSecret = localStorage.getItem('zohoClientSecret');
         const savedZohoRegion = localStorage.getItem('zohoRegion') || 'com';
         
-        if (savedApiKey) {
+        if (savedApiKey && savedApiKey !== 'demo_mode') {
             // Auto-connect Sleekflow
             const result = await apiRequest('/auto-connect', 'POST', {
                 sleekflowApiKey: savedApiKey,
@@ -831,26 +733,23 @@ function startMessagePolling() {
         clearInterval(messagePollInterval);
     }
     
-    // Gerçek zamanlı güncelleme için 5 saniyede bir kontrol et
     messagePollInterval = setInterval(async () => {
         if (!state.sleekflow.connected) {
             return;
         }
         
         try {
-            // Refresh conversations to get new messages (gerçek zamanlı sıralama için)
-            // Sessizce güncelle - loading gösterme
-            await loadConversations(true); // silent = true
+            // Refresh conversations to get new messages (sessiz mod)
+            await loadConversations(true);
             
-            // If there's an active conversation, refresh its messages
+            // If there's an active conversation, refresh its messages (sessiz mod)
             if (state.currentConversation) {
-                await loadMessages(state.currentConversation.id, true); // silent = true
+                await loadMessages(state.currentConversation.id, true);
             }
         } catch (error) {
-            // Sessizce hata logla, kullanıcıya gösterme
             console.error('Message polling error:', error);
         }
-    }, 5000); // Her 5 saniyede bir güncelle (gerçek zamanlı)
+    }, 10000); // Every 10 seconds
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -871,10 +770,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Chat
     elements.refreshConversations?.addEventListener('click', loadConversations);
     elements.sendMessage?.addEventListener('click', sendMessage);
-    elements.attachFile?.addEventListener('click', () => {
-        elements.fileInput.click();
-    });
-    elements.fileInput?.addEventListener('change', updateSelectedFiles);
     elements.messageInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -882,39 +777,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    // Channel filter
-    elements.channelFilter?.addEventListener('change', async (e) => {
-        const selectedChannel = e.target.value;
-        state.selectedChannelFilter = selectedChannel;
-        console.log(`📱 Kanal filtresi değişti: ${selectedChannel || 'Tümü'}`);
-        // Konuşmaları yeniden yükle
-        await loadConversations();
+    // Channel Filter
+    elements.channelFilter?.addEventListener('change', (e) => {
+        state.selectedChannelFilter = e.target.value;
+        loadConversations();
     });
     
-    // Search
+    // File Upload
+    elements.attachFile?.addEventListener('click', () => {
+        elements.fileInput?.click();
+    });
+    
+    elements.fileInput?.addEventListener('change', handleFileSelect);
+    
+    // Search (case-insensitive)
     elements.searchConversations?.addEventListener('input', (e) => {
-        const search = e.target.value.toLowerCase();
+        const search = e.target.value.trim().toLowerCase();
         const items = elements.conversationsList.querySelectorAll('.conversation-item');
         items.forEach(item => {
-            const name = item.querySelector('.conversation-name').textContent.toLowerCase();
-            item.style.display = name.includes(search) ? 'flex' : 'none';
+            const nameEl = item.querySelector('.conversation-name');
+            const previewEl = item.querySelector('.conversation-preview');
+            
+            if (!nameEl) return;
+            
+            const name = nameEl.textContent.trim().toLowerCase();
+            const preview = previewEl ? previewEl.textContent.trim().toLowerCase() : '';
+            
+            // İsim veya mesaj önizlemesinde ara
+            const matches = search === '' || name.includes(search) || preview.includes(search);
+            item.style.display = matches ? 'flex' : 'none';
         });
     });
     
         // Load saved state
         loadSavedState();
         
+        // Otomatik olarak konuşmaları yükle (demo modu ile çalışır)
+        console.log('🚀 Sayfa yüklendi, konuşmalar yükleniyor...');
+        setTimeout(() => {
+            loadConversations().catch(err => {
+                console.error('❌ Konuşmalar yüklenirken hata:', err);
+            });
+        }, 500);
+        
         // Auto-connect
         autoConnect().then(() => {
-            // Bağlantı başarılı olduysa konuşmaları yükle
+            // Start message polling after connection
             if (state.sleekflow.connected) {
-                console.log('🚀 Bağlantı başarılı, konuşmalar yükleniyor...');
-                loadConversations().catch(err => {
-                    console.error('❌ Konuşmalar yüklenirken hata:', err);
-                });
                 startMessagePolling();
-            } else {
-                console.log('⚠️ Bağlantı yok, konuşmalar yüklenmeyecek');
             }
         });
         

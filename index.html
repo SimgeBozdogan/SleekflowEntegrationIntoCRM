@@ -18,22 +18,28 @@
             <div class="sidebar-content">
                 <!-- Sleekflow Connection -->
                 <div class="settings-section">
-                    <h3>📱 Sleekflow Platform API</h3>
+                    <h3>📱 Sleekflow</h3>
                     <div class="form-group">
-                        <label>Platform API Anahtarı <span style="color: #ef4444;">*</span></label>
-                        <input type="password" id="sleekflowApiKey" class="input-field" placeholder="API anahtarınızı buraya yapıştırın" required>
+                        <label>API Anahtarı <span style="color: #ef4444;">*</span></label>
+                        <input type="password" id="sleekflowApiKey" class="input-field" placeholder="API anahtarınızı girin" required>
+                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                            📍 Sleekflow hesabınızdan: <strong>Channels > Add integrations > API</strong> bölümünden yeni API key oluşturun
+                        </small>
                     </div>
                     <div class="form-group">
-                        <label>Bölge (Base URL)</label>
+                        <label>Base URL (Bölge Seçin)</label>
                         <select id="sleekflowBaseUrl" class="input-field">
-                            <option value="https://sleekflow-core-app-weu-production.azurewebsites.net">West Europe (Önerilen)</option>
-                            <option value="https://api.sleekflow.io">Hong Kong</option>
+                            <option value="https://api.sleekflow.io">Hong Kong (Varsayılan)</option>
+                            <option value="https://sleekflow-core-app-weu-production.azurewebsites.net">West Europe</option>
                             <option value="https://sleekflow-core-app-eus-production.azurewebsites.net">United States</option>
                             <option value="https://sleekflow-core-app-seas-production.azurewebsites.net">Singapore</option>
                             <option value="https://sleekflow-core-app-uaen-production.azurewebsites.net">UAE North</option>
                         </select>
+                        <small style="color: #666; font-size: 12px; display: block; margin-top: 5px;">
+                            ⚠️ Sleekflow hesabınızın hangi bölgede olduğunu seçin (West Europe olabilir)
+                        </small>
                     </div>
-                    <button class="btn btn-primary btn-block" id="connectSleekflow">🔗 SleekFlow'a Bağlan</button>
+                    <button class="btn btn-primary btn-block" id="connectSleekflow">Bağlan</button>
                 </div>
 
                 <!-- Zoho Connection -->
@@ -153,7 +159,7 @@
                                 >
                                 <button class="btn btn-primary" id="sendMessage" disabled>Gönder</button>
                             </div>
-                            <div id="selectedFiles" style="display: none; padding: 5px 10px; font-size: 12px; color: #666;">
+                            <div id="selectedFilesContainer" class="selected-files-container" style="display: none;">
                                 <!-- Seçilen dosyalar burada gösterilecek -->
                             </div>
                         </div>
