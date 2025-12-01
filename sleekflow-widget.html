@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SleekFlow Inbox</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: #f5f7fa;
+      font-family: -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    }
+    
+    #sleekflow-container {
+      height: calc(100vh - 50px);
+      width: 100%;
+      border: none;
+      border-radius: 0;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* Widget iframe stilleri */
+    #sleekflow-container iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+    
+    .header {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: white;
+      padding: 15px;
+      text-align: center;
+      font-weight: 600;
+      font-size: 17px;
+    }
+    
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: calc(100% - 50px);
+      color: #666;
+    }
+    
+  </style>
+</head>
+<body>
+  <div class="header">SleekFlow Canlı Sohbet</div>
+  <div id="sleekflow-container">
+    <div style="padding: 20px; text-align: center; color: #666;">
+      <p>Widget yükleniyor...</p>
+      <p style="font-size: 12px; margin-top: 10px;">Eğer widget görünmüyorsa, tarayıcı konsolunu (F12) açıp hataları kontrol edin.</p>
+    </div>
+  </div>
+
+  <!-- Start of SleekFlow Embed Code -->
+  <script src="https://chat.sleekflow.io/embed_iframe.js" 
+    data-id="travischatwidget"
+    data-companyid="34ca3ad0-6bb3-426f-9b89-d40c8990b861"
+    data-location="westeurope"
+    type="text/javascript">
+  </script>
+  <!-- End of SleekFlow Embed Code -->
+  
+  <script>
+    // Widget yüklenme kontrolü
+    window.addEventListener('load', function() {
+      console.log('✅ Sayfa yüklendi, Sleekflow widget kontrol ediliyor...');
+      
+      // Widget'ın yüklenmesini bekle
+      setTimeout(function() {
+        var widgetIframe = document.querySelector('iframe[src*="sleekflow"]');
+        var allIframes = document.querySelectorAll('iframe');
+        
+        console.log('🔍 Iframe sayısı:', allIframes.length);
+        allIframes.forEach(function(iframe, index) {
+          console.log(`   Iframe ${index}:`, iframe.src || 'no src');
+        });
+        
+        if (widgetIframe) {
+          console.log('✅ Sleekflow widget iframe bulundu!');
+          console.log('   Widget src:', widgetIframe.src);
+          
+          // Container'a taşı
+          var container = document.getElementById('sleekflow-container');
+          if (container) {
+            // Container içindeki "yükleniyor" mesajını temizle
+            // ÖNEMLİ: Iframe'i kaybetmemek için önce kaydet
+            var iframeToMove = widgetIframe;
+            container.innerHTML = '';
+            
+            // Iframe'i container'a ekle
+            container.appendChild(iframeToMove);
+            console.log('✅ Widget container\'a eklendi (içerik temizlendi)');
+            
+            // Iframe stillerini ayarla
+            widgetIframe.style.width = '100%';
+            widgetIframe.style.height = 'calc(100vh - 50px)';
+            widgetIframe.style.border = 'none';
+            widgetIframe.style.display = 'block';
+            widgetIframe.style.position = 'absolute';
+            widgetIframe.style.top = '0';
+            widgetIframe.style.left = '0';
+            widgetIframe.style.zIndex = '1';
+            
+            // Container'ın görünür olduğundan emin ol
+            container.style.position = 'relative';
+            container.style.height = 'calc(100vh - 50px)';
+            
+            console.log('✅ Widget stilleri ayarlandı');
+            console.log('   Iframe boyutları:', widgetIframe.offsetWidth, 'x', widgetIframe.offsetHeight);
+            console.log('   Container boyutları:', container.offsetWidth, 'x', container.offsetHeight);
+            
+            // Widget'ın yüklendiğini kontrol et
+            if (widgetIframe.contentWindow) {
+              console.log('✅ Widget iframe içeriği erişilebilir');
+              try {
+                // Iframe yüklendiğinde bildirim al
+                widgetIframe.onload = function() {
+                  console.log('✅ Widget iframe içeriği yüklendi!');
+                };
+              } catch(e) {
+                console.warn('⚠️ Widget iframe içeriğine erişim sınırlı (cross-origin):', e.message);
+              }
+            }
+            
+            console.log('🎉 WIDGET BAŞARIYLA BAĞLANDI!');
+          } else {
+            console.error('❌ Container bulunamadı!');
+          }
+        } else {
+          console.warn('⚠️ Sleekflow widget iframe bulunamadı');
+          console.warn('   Widget script yüklenmiş olabilir ama iframe oluşmamış');
+          
+          // Widget script'inin yüklenip yüklenmediğini kontrol et
+          var scripts = document.querySelectorAll('script[src*="sleekflow"]');
+          console.log('🔍 Sleekflow script sayısı:', scripts.length);
+          
+          if (scripts.length === 0) {
+            console.error('❌ Sleekflow widget script hiç yüklenmemiş!');
+          } else {
+            console.log('✅ Sleekflow widget script yüklendi ama iframe oluşmamış');
+          }
+        }
+      }, 5000); // 5 saniye bekle
+    });
+  </script>
+
+  <!-- Zoho Embedded App API -->
+  <script src="https://static.zoho.com/crm/js/api/v2/zoho.js"></script>
+  
+  <script>
+    // Zoho Embedded App başlatma - ZOHO yüklendikten sonra çalışacak
+    function initZoho() {
+      if (typeof ZOHO === 'undefined') {
+        console.warn('⚠️ ZOHO henüz yüklenmedi, tekrar deneniyor...');
+        setTimeout(initZoho, 1000);
+        return;
+      }
+      
+      console.log('✅ ZOHO yüklendi, başlatılıyor...');
+      
+      try {
+        ZOHO.embeddedApp.on("PageLoad", function(data) {
+      console.log("Zoho PageLoad:", data);
+      
+      if (data && data.Entity && data.EntityId) {
+        // Zoho CRM'den müşteri bilgilerini al
+        ZOHO.CRM.API.getRecord({
+          Entity: data.Entity,
+          RecordID: data.EntityId
+        }).then(function(res) {
+          console.log("Zoho CRM Data:", res);
+          
+          if (res && res.data && res.data.length > 0) {
+            var r = res.data[0];
+            var name = (r.First_Name || "") + " " + (r.Last_Name || "") || r.Full_Name || "";
+            var phone = r.Phone || r.Mobile || "";
+            var email = r.Email || "";
+            
+            console.log("Customer Info:", { name, phone, email, id: r.Id });
+            
+            // SleekFlow Widget'a müşteri bilgilerini gönder
+            // Widget yüklendikten sonra (5 saniye bekleyerek)
+            setTimeout(function() {
+              if (window.SleekFlowWidget) {
+                try {
+                  window.SleekFlowWidget.setCustomer({
+                    name: name.trim(),
+                    email: email,
+                    phone: phone,
+                    external_id: r.Id
+                  });
+                  console.log("✅ Müşteri bilgileri SleekFlow widget'a gönderildi");
+                } catch (e) {
+                  console.error("❌ Widget'a müşteri bilgisi gönderilemedi:", e);
+                }
+              } else {
+                console.warn("⚠️ SleekFlow Widget henüz yüklenmedi, tekrar deneniyor...");
+                // Widget yüklenene kadar tekrar dene
+                var retries = 0;
+                var interval = setInterval(function() {
+                  retries++;
+                  if (window.SleekFlowWidget) {
+                    clearInterval(interval);
+                    try {
+                      window.SleekFlowWidget.setCustomer({
+                        name: name.trim(),
+                        email: email,
+                        phone: phone,
+                        external_id: r.Id
+                      });
+                      console.log("✅ Müşteri bilgileri SleekFlow widget'a gönderildi (retry)");
+                    } catch (e) {
+                      console.error("❌ Widget'a müşteri bilgisi gönderilemedi:", e);
+                    }
+                  } else if (retries > 10) {
+                    clearInterval(interval);
+                    console.error("❌ SleekFlow Widget yüklenemedi");
+                  }
+                }, 1000);
+              }
+            }, 3000);
+          }
+        }).catch(function(error) {
+          console.error("Zoho CRM API Error:", error);
+        });
+      } else {
+        console.log("Zoho Entity veya EntityId bulunamadı");
+      }
+    });
+
+        // Zoho Embedded App'i başlat
+        ZOHO.embeddedApp.init();
+        console.log("✅ Zoho Embedded App başlatıldı");
+      } catch (error) {
+        console.error("❌ Zoho başlatma hatası:", error);
+      }
+    }
+    
+    // Zoho'yu başlat (yüklendikten sonra)
+    window.addEventListener('load', function() {
+      setTimeout(initZoho, 1000); // 1 saniye bekle, sonra başlat
+    });
+    
+    console.log("SleekFlow Widget sayfası yüklendi");
+  </script>
+</body>
+</html>
+

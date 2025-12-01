@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sleekflow Chat - Zoho Entegrasyonu</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar - Settings & Connection -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>⚙️ Ayarlar</h2>
+                <button class="btn-icon" id="toggleSidebar">✕</button>
+            </div>
+            
+            <div class="sidebar-content">
+                <!-- Sleekflow Connection -->
+                <div class="settings-section">
+                    <h3>📱 Sleekflow Platform API</h3>
+                    <div class="form-group">
+                        <label>Platform API Anahtarı <span style="color: #ef4444;">*</span></label>
+                        <input type="password" id="sleekflowApiKey" class="input-field" placeholder="API anahtarınızı buraya yapıştırın" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Bölge (Base URL)</label>
+                        <select id="sleekflowBaseUrl" class="input-field">
+                            <option value="https://sleekflow-core-app-weu-production.azurewebsites.net">West Europe (Önerilen)</option>
+                            <option value="https://api.sleekflow.io">Hong Kong</option>
+                            <option value="https://sleekflow-core-app-eus-production.azurewebsites.net">United States</option>
+                            <option value="https://sleekflow-core-app-seas-production.azurewebsites.net">Singapore</option>
+                            <option value="https://sleekflow-core-app-uaen-production.azurewebsites.net">UAE North</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="connectSleekflow">🔗 SleekFlow'a Bağlan</button>
+                </div>
+
+                <!-- Zoho Connection -->
+                <div class="settings-section">
+                    <h3>📊 Zoho</h3>
+                    <div class="form-group">
+                        <label>Client ID</label>
+                        <input type="text" id="zohoClientId" class="input-field" placeholder="Client ID">
+                    </div>
+                    <div class="form-group">
+                        <label>Client Secret</label>
+                        <input type="password" id="zohoClientSecret" class="input-field" placeholder="Client Secret">
+                    </div>
+                    <div class="form-group">
+                        <label>Redirect URI</label>
+                        <input type="text" id="zohoRedirectUri" class="input-field" value="http://localhost:3000/callback">
+                    </div>
+                    <div class="form-group">
+                        <label>Bölge</label>
+                        <select id="zohoRegion" class="input-field">
+                            <option value="com">Zoho.com (Global)</option>
+                            <option value="eu">Zoho.eu (Europe)</option>
+                            <option value="in">Zoho.in (India)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-block" id="connectZoho">Bağlan</button>
+                    <button class="btn btn-secondary btn-block" id="testZoho" style="margin-top: 10px;">Test Et</button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <div class="main-area">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="btn-icon" id="openSidebar">☰</button>
+                    <h1>Sleekflow Inbox</h1>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn-icon" id="refreshConversations" title="Yenile">🔄</button>
+                </div>
+            </header>
+
+            <!-- Chat Layout -->
+            <div class="chat-layout">
+                <!-- Conversations List -->
+                <div class="conversations-panel" id="conversationsPanel">
+                    <div class="conversations-header">
+                        <h2>Konuşmalar</h2>
+                        <select id="channelFilter" class="sender-select" title="Kanal Filtrele">
+                            <option value="">Tüm Kanallar</option>
+                            <option value="whatsapp">WhatsApp</option>
+                            <option value="instagram">Instagram</option>
+                            <option value="facebook">Facebook</option>
+                            <option value="sms">SMS</option>
+                            <option value="line">LINE</option>
+                            <option value="wechat">WeChat</option>
+                            <option value="web">Web</option>
+                        </select>
+                        <input type="text" id="searchConversations" class="search-input" placeholder="🔍 Ara...">
+                    </div>
+                    <div class="conversations-list" id="conversationsList">
+                        <div class="empty-state">
+                            <p>📭 Henüz konuşma yok</p>
+                            <p class="empty-hint">Sleekflow'a bağlanın ve konuşmaları görüntüleyin</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat View -->
+                <div class="chat-view" id="chatView">
+                    <div class="chat-empty">
+                        <div class="empty-icon">💬</div>
+                        <h2>Bir konuşma seçin</h2>
+                        <p>Sol taraftan bir konuşma seçerek mesajları görüntüleyin</p>
+                    </div>
+
+                    <!-- Active Chat -->
+                    <div class="chat-active" id="chatActive" style="display: none;">
+                        <!-- Chat Header -->
+                        <div class="chat-header">
+                            <div class="chat-header-info">
+                                <div class="chat-avatar" id="chatAvatar">👤</div>
+                                <div>
+                                    <h3 id="chatContactName">İsim</h3>
+                                    <span class="chat-meta" id="chatMeta">Durum</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Messages Area -->
+                        <div class="messages-area" id="messagesArea">
+                            <div class="messages-list" id="messagesList">
+                                <!-- Messages will be inserted here -->
+                            </div>
+                        </div>
+
+                        <!-- Message Input -->
+                        <div class="message-input-area">
+                            <div class="message-input-wrapper">
+                                <input 
+                                    type="file" 
+                                    id="fileInput" 
+                                    class="file-input" 
+                                    multiple
+                                    accept="image/*,video/*,audio/*,.pdf"
+                                    style="display: none;"
+                                >
+                                <button class="btn btn-icon" id="attachFile" title="Dosya ekle" style="margin-right: 5px; padding: 8px 12px;">📎</button>
+                                <input 
+                                    type="text" 
+                                    id="messageInput" 
+                                    class="message-input" 
+                                    placeholder="Mesaj yazın..."
+                                    disabled
+                                >
+                                <button class="btn btn-primary" id="sendMessage" disabled>Gönder</button>
+                            </div>
+                            <div id="selectedFiles" style="display: none; padding: 5px 10px; font-size: 12px; color: #666;">
+                                <!-- Seçilen dosyalar burada gösterilecek -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="overlay" id="loadingOverlay" style="display: none;">
+        <div class="spinner"></div>
+        <p>Yükleniyor...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script src="app.js?v=7"></script>
+</body>
+</html>
