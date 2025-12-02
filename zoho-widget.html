@@ -9,7 +9,7 @@
 <body>
     <div class="app-container">
         <!-- Sidebar - Settings & Connection -->
-        <aside class="sidebar" id="sidebar">
+        <aside class="sidebar open" id="sidebar" style="left: 0; opacity: 1; visibility: visible;">
             <div class="sidebar-header">
                 <h2>⚙️ Ayarlar</h2>
                 <button class="btn-icon" id="toggleSidebar" type="button" onclick="window.toggleSidebar(); return false;">✕</button>
@@ -391,20 +391,27 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('📄 Widget DOM yüklendi, sidebar event listener\'lar ekleniyor...');
             
-            // ÖNCE SIDEBAR'I AÇ - ZORLA
+            // ÖNCE SIDEBAR'I AÇ - ZORLA (localStorage kontrolü ile)
             const sidebar = document.getElementById('sidebar');
             if (sidebar) {
                 // localStorage kontrolü
                 const sidebarClosed = localStorage.getItem('sidebarClosed');
-                if (sidebarClosed !== 'true') {
-                    // ZORLA AÇ
-                    sidebar.classList.add('open');
-                    sidebar.style.left = '0';
-                    sidebar.style.opacity = '1';
-                    sidebar.style.visibility = 'visible';
-                    console.log('✅ Sidebar WIDGET için ZORLA AÇILDI');
+                if (sidebarClosed === 'true') {
+                    // Kullanıcı kapattıysa kapalı tut
+                    sidebar.classList.remove('open');
+                    sidebar.style.left = '-320px';
+                    sidebar.style.opacity = '0';
+                    sidebar.style.visibility = 'hidden';
+                    console.log('ℹ️ Sidebar kullanıcı tarafından kapatılmış, kapalı tutuluyor');
                 } else {
-                    console.log('ℹ️ Sidebar kullanıcı tarafından kapatılmış, açılmıyor');
+                    // ZORLA AÇ - HER YÖNTEMLE
+                    sidebar.classList.add('open');
+                    sidebar.style.setProperty('left', '0', 'important');
+                    sidebar.style.setProperty('opacity', '1', 'important');
+                    sidebar.style.setProperty('visibility', 'visible', 'important');
+                    sidebar.style.setProperty('display', 'flex', 'important');
+                    document.body.style.overflow = 'hidden';
+                    console.log('✅ Sidebar WIDGET için ZORLA AÇILDI');
                 }
             }
             
