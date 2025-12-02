@@ -265,6 +265,18 @@ async function connectSleekflow() {
             state.sleekflow.connected = true;
             updateSleekflowStatus(true);
             
+            // ✅ Zoho içindeyken de otomatik kapansın
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                sidebar.classList.remove('open');
+                sidebar.style.left = '-320px';
+                sidebar.style.opacity = '0';
+                sidebar.style.visibility = 'hidden';
+                document.body.style.overflow = '';
+                localStorage.setItem('sidebarClosed', 'true');
+                console.log('✅ Sidebar otomatik kapatıldı (SleekFlow bağlantısı başarılı)');
+            }
+            
             // Start polling
             await apiRequest('/polling/start', 'POST');
             startMessagePolling();
@@ -954,9 +966,23 @@ document.addEventListener('DOMContentLoaded', () => {
     
     elements.fileInput?.addEventListener('change', handleFileSelect);
     
-    // Search (case-insensitive)
+    // Search (case-insensitive - Türkçe karakter desteği ile)
     elements.searchConversations?.addEventListener('input', (e) => {
-        const search = e.target.value.trim().toLowerCase();
+        // Türkçe karakterleri normalize et ve küçük harfe çevir
+        const normalizeText = (text) => {
+            return text
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
+                .replace(/ı/g, 'i')
+                .replace(/ğ/g, 'g')
+                .replace(/ü/g, 'u')
+                .replace(/ş/g, 's')
+                .replace(/ö/g, 'o')
+                .replace(/ç/g, 'c');
+        };
+        
+        const search = normalizeText(e.target.value.trim());
         const items = elements.conversationsList.querySelectorAll('.conversation-item');
         items.forEach(item => {
             const nameEl = item.querySelector('.conversation-name');
@@ -964,10 +990,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!nameEl) return;
             
-            const name = nameEl.textContent.trim().toLowerCase();
-            const preview = previewEl ? previewEl.textContent.trim().toLowerCase() : '';
+            const name = normalizeText(nameEl.textContent.trim());
+            const preview = previewEl ? normalizeText(previewEl.textContent.trim()) : '';
             
-            // İsim veya mesaj önizlemesinde ara
+            // İsim veya mesaj önizlemesinde ara (case-insensitive)
             const matches = search === '' || name.includes(search) || preview.includes(search);
             item.style.display = matches ? 'flex' : 'none';
         });
