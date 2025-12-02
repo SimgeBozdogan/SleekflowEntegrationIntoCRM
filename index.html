@@ -12,7 +12,7 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>⚙️ Ayarlar</h2>
-                <button class="btn-icon" id="toggleSidebar">✕</button>
+                <button class="btn-icon" id="toggleSidebar" type="button" style="cursor: pointer; z-index: 10001;">✕</button>
             </div>
             
             <div class="sidebar-content">
@@ -76,7 +76,7 @@
             <!-- Top Bar -->
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button class="btn-icon" id="openSidebar">☰</button>
+                    <button class="btn-icon" id="openSidebar" type="button">☰</button>
                     <h1>Sleekflow Inbox</h1>
                 </div>
                 <div class="top-bar-right">
@@ -178,6 +178,66 @@
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <script src="app.js?v=7"></script>
+    <script>
+        // Basit sidebar kontrol fonksiyonları
+
+        function openSidebarNow() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) {
+                console.error('❌ #sidebar bulunamadı');
+                return;
+            }
+            sidebar.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            console.log('✅ Sidebar AÇILDI');
+        }
+
+        function closeSidebarNow() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+
+            sidebar.classList.remove('open');
+            document.body.style.overflow = '';
+            console.log('✅ Sidebar KAPATILDI');
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) return;
+
+            const isOpen = sidebar.classList.contains('open');
+            if (isOpen) {
+                closeSidebarNow();
+            } else {
+                openSidebarNow();
+            }
+        }
+
+        // Global erişim (HTML'de onclick kullanıyorsan)
+        window.openSidebarNow = openSidebarNow;
+        window.closeSidebarNow = closeSidebarNow;
+        window.toggleSidebar = toggleSidebar;
+
+        // Butonlara event bağla
+        document.addEventListener('DOMContentLoaded', () => {
+            const openBtn = document.getElementById('openSidebar');
+            const closeBtn = document.getElementById('toggleSidebar'); // X butonu
+
+            if (openBtn) {
+                openBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleSidebar();
+                });
+            }
+
+            if (closeBtn) {
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    toggleSidebar();
+                });
+            }
+        });
+    </script>
+    <script src="app.js?v=32"></script>
 </body>
 </html>

@@ -40,7 +40,7 @@ body {
     width: 100vw;
 }
 
-/* Sidebar */
+/* Sidebar – başlangıçta kapalı (ekran dışında) */
 .sidebar {
     width: 320px;
     background: var(--sidebar-bg);
@@ -48,17 +48,23 @@ body {
     display: flex;
     flex-direction: column;
     border-right: 1px solid rgba(255, 255, 255, 0.1);
-    transition: transform 0.3s ease;
     position: fixed;
-    left: 0;
     top: 0;
+    left: -320px;            /* KAPALI */
     height: 100vh;
     z-index: 1000;
-    transform: translateX(-100%);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: left 0.25s ease, opacity 0.25s ease;
 }
 
+/* Açık durum */
 .sidebar.open {
-    transform: translateX(0);
+    left: 0;                 /* AÇIK */
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
 }
 
 .sidebar-header {
