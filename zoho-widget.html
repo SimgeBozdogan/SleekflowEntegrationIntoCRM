@@ -304,10 +304,15 @@
                 console.error('❌ #sidebar bulunamadı');
                 return false;
             }
+            // ZORLA AÇ - HER YÖNTEMLE
             sidebar.classList.add('open');
+            sidebar.style.left = '0';
+            sidebar.style.opacity = '1';
+            sidebar.style.visibility = 'visible';
+            sidebar.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             localStorage.setItem('sidebarClosed', 'false');
-            console.log('✅ Sidebar AÇILDI (widget)');
+            console.log('✅ Sidebar AÇILDI (widget) - zorla uygulandı');
             return false;
         };
 
@@ -317,10 +322,14 @@
                 console.error('❌ #sidebar bulunamadı');
                 return false;
             }
+            // ZORLA KAPAT - HER YÖNTEMLE
             sidebar.classList.remove('open');
+            sidebar.style.left = '-320px';
+            sidebar.style.opacity = '0';
+            sidebar.style.visibility = 'hidden';
             document.body.style.overflow = '';
             localStorage.setItem('sidebarClosed', 'true');
-            console.log('✅ Sidebar KAPATILDI (widget)');
+            console.log('✅ Sidebar KAPATILDI (widget) - zorla uygulandı');
             return false;
         };
 
@@ -382,6 +391,23 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('📄 Widget DOM yüklendi, sidebar event listener\'lar ekleniyor...');
             
+            // ÖNCE SIDEBAR'I AÇ - ZORLA
+            const sidebar = document.getElementById('sidebar');
+            if (sidebar) {
+                // localStorage kontrolü
+                const sidebarClosed = localStorage.getItem('sidebarClosed');
+                if (sidebarClosed !== 'true') {
+                    // ZORLA AÇ
+                    sidebar.classList.add('open');
+                    sidebar.style.left = '0';
+                    sidebar.style.opacity = '1';
+                    sidebar.style.visibility = 'visible';
+                    console.log('✅ Sidebar WIDGET için ZORLA AÇILDI');
+                } else {
+                    console.log('ℹ️ Sidebar kullanıcı tarafından kapatılmış, açılmıyor');
+                }
+            }
+            
             // Sidebar butonları - ÇOKLU YÖNTEMLE BAĞLA
             const openBtn = document.getElementById('openSidebar');
             const closeBtn = document.getElementById('toggleSidebar');
@@ -432,18 +458,6 @@
 
             // Arama fonksiyonunu kur
             setupWidgetSearch();
-
-            // Sidebar'ı widget için varsayılan açık yap (sadece ilk yüklemede)
-            const sidebar = document.getElementById('sidebar');
-            if (sidebar && !sidebar.classList.contains('open') && !sidebar.classList.contains('closed')) {
-                // İlk yüklemede açık yap
-                sidebar.classList.add('open');
-                // Kullanıcı kapattıysa localStorage'a kaydet
-                const sidebarClosed = localStorage.getItem('sidebarClosed');
-                if (sidebarClosed === 'true') {
-                    sidebar.classList.remove('open');
-                }
-            }
         });
     </script>
 </body>
