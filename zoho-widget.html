@@ -9,7 +9,7 @@
 <body>
     <div class="app-container">
         <!-- Sidebar - Settings & Connection -->
-        <aside class="sidebar open" id="sidebar" style="left: 0; opacity: 1; visibility: visible;">
+        <aside class="sidebar open" id="sidebar" style="left: 0 !important; opacity: 1 !important; visibility: visible !important; display: flex !important; z-index: 10000 !important;">
             <div class="sidebar-header">
                 <h2>⚙️ Ayarlar</h2>
                 <button class="btn-icon" id="toggleSidebar" type="button" onclick="window.toggleSidebar(); return false;">✕</button>
@@ -304,12 +304,13 @@
                 console.error('❌ #sidebar bulunamadı');
                 return false;
             }
-            // ZORLA AÇ - HER YÖNTEMLE
+            // ZORLA AÇ - HER YÖNTEMLE - !important ile
             sidebar.classList.add('open');
-            sidebar.style.left = '0';
-            sidebar.style.opacity = '1';
-            sidebar.style.visibility = 'visible';
-            sidebar.style.display = 'flex';
+            sidebar.style.setProperty('left', '0', 'important');
+            sidebar.style.setProperty('opacity', '1', 'important');
+            sidebar.style.setProperty('visibility', 'visible', 'important');
+            sidebar.style.setProperty('display', 'flex', 'important');
+            sidebar.style.setProperty('z-index', '10000', 'important');
             document.body.style.overflow = 'hidden';
             localStorage.setItem('sidebarClosed', 'false');
             console.log('✅ Sidebar AÇILDI (widget) - zorla uygulandı');
@@ -399,19 +400,31 @@
                 if (sidebarClosed === 'true') {
                     // Kullanıcı kapattıysa kapalı tut
                     sidebar.classList.remove('open');
-                    sidebar.style.left = '-320px';
-                    sidebar.style.opacity = '0';
-                    sidebar.style.visibility = 'hidden';
+                    sidebar.style.setProperty('left', '-320px', 'important');
+                    sidebar.style.setProperty('opacity', '0', 'important');
+                    sidebar.style.setProperty('visibility', 'hidden', 'important');
                     console.log('ℹ️ Sidebar kullanıcı tarafından kapatılmış, kapalı tutuluyor');
                 } else {
-                    // ZORLA AÇ - HER YÖNTEMLE
+                    // ZORLA AÇ - HER YÖNTEMLE - !important ile
                     sidebar.classList.add('open');
                     sidebar.style.setProperty('left', '0', 'important');
                     sidebar.style.setProperty('opacity', '1', 'important');
                     sidebar.style.setProperty('visibility', 'visible', 'important');
                     sidebar.style.setProperty('display', 'flex', 'important');
+                    sidebar.style.setProperty('z-index', '10000', 'important');
                     document.body.style.overflow = 'hidden';
                     console.log('✅ Sidebar WIDGET için ZORLA AÇILDI');
+                    
+                    // 100ms sonra tekrar kontrol et ve zorla aç
+                    setTimeout(() => {
+                        const computed = window.getComputedStyle(sidebar);
+                        if (computed.left !== '0px' && computed.left !== '0') {
+                            console.warn('⚠️ Sidebar hala açılmadı, tekrar zorla açılıyor...');
+                            sidebar.style.setProperty('left', '0', 'important');
+                            sidebar.style.setProperty('opacity', '1', 'important');
+                            sidebar.style.setProperty('visibility', 'visible', 'important');
+                        }
+                    }, 100);
                 }
             }
             
