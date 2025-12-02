@@ -707,18 +707,17 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     fileName = fileUrl.split('/').pop() || '';
                 }
                 
-                // 3. messageContent'i kontrol et - SADECE DOSYA PATH'İ İSE fileUrl olarak kullan
+                // 3. messageContent'i kontrol et - DOSYA PATH'İ İSE fileUrl olarak kullan, TEXT DEĞİL
                 const rawMessageContent = m.messageContent || "";
                 
-                // messageContent SADECE dosya path'i mi yoksa text içeriyor mu kontrol et
-                // Eğer messageContent SADECE "Conversation/..." ile başlıyorsa ve başka text yoksa, dosya path'i
-                const isOnlyFilePath = rawMessageContent && 
+                // messageContent dosya path'i mi kontrol et
+                // Eğer "Conversation/" ile başlıyorsa ve dosya uzantısı varsa, bu bir dosya path'i
+                const isFilePath = rawMessageContent && 
                     rawMessageContent.includes("Conversation/") && 
-                    rawMessageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i) &&
-                    rawMessageContent.trim().length < 200; // Çok uzun değilse (sadece path)
+                    rawMessageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i);
                 
-                if (!fileUrl && isOnlyFilePath) {
-                    // messageContent SADECE dosya path'i, onu fileUrl olarak kullan
+                if (!fileUrl && isFilePath) {
+                    // messageContent bir dosya path'i, onu fileUrl olarak kullan
                     // Eğer relative path ise, base URL ile birleştir
                     if (rawMessageContent.startsWith('http')) {
                         fileUrl = rawMessageContent; // Zaten tam URL
@@ -728,17 +727,20 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                         fileUrl = `${base}${rawMessageContent.startsWith('/') ? '' : '/'}${rawMessageContent}`;
                     }
                     fileName = rawMessageContent.split('/').pop() || rawMessageContent.split('\\').pop() || '';
+                    
+                    // Dosya path'i ise messageContent'i TEXT OLARAK KULLANMA - sadece caption'ı kullan
+                    // messageContent = ""; // Boş bırak, text olarak gösterilmesin
                 }
                 
-                // TEXT İÇERİĞİNİ AL - ÖNCE GERÇEK TEXT ALANLARINI KONTROL ET
+                // TEXT İÇERİĞİNİ AL
                 let messageText = "";
                 
-                // Eğer messageContent dosya path'i değilse, onu text olarak kullan
-                if (!isOnlyFilePath && rawMessageContent) {
+                // Eğer messageContent dosya path'i DEĞİLSE, onu text olarak kullan
+                if (!isFilePath && rawMessageContent) {
                     messageText = rawMessageContent;
                 }
                 
-                // Eğer hala text yoksa, diğer alanları kontrol et
+                // Eğer hala text yoksa, caption veya diğer alanları kontrol et
                 if (!messageText || !messageText.trim()) {
                     messageText = m.caption || m.text || m.body || m.message || m.content || "";
                 }

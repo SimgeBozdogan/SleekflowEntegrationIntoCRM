@@ -606,38 +606,42 @@ function renderMessages(messages) {
             // Mesaj içeriğini oluştur - NORMAL MESAJLAŞMA GİBİ
             let contentHtml = '';
             
-            // Dosya varsa göster
+            // DOSYA VARSA GÖSTER - VİDEO, RESİM, DOSYA
             if (fileUrl) {
                 const isVideo = messageType === "video" || fileUrl.match(/\.(mp4|avi|mov|wmv|webm)$/i);
-                const isImage = messageType === "image" || fileUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+                const isImage = messageType === "image" || fileUrl.match(/\.(jpg|jpeg|png|gif|webp|jfif)$/i);
                 const isAudio = fileUrl.match(/\.(mp3|wav|ogg|m4a)$/i);
                 
                 if (isVideo) {
-                    // Video player göster
-                    contentHtml += `<video controls style="max-width: 100%; border-radius: 8px; margin-bottom: 8px;">
+                    // VİDEO PLAYER GÖSTER
+                    contentHtml += `<video controls style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-bottom: 8px; background: #000;">
                         <source src="${escapeHtml(fileUrl)}" type="video/mp4">
                         Tarayıcınız video oynatmayı desteklemiyor.
                     </video>`;
                 } else if (isImage) {
-                    // Resim göster
-                    contentHtml += `<img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName || 'Resim')}" style="max-width: 100%; border-radius: 8px; margin-bottom: 8px; cursor: pointer;" onclick="window.open('${escapeHtml(fileUrl)}', '_blank')">`;
+                    // RESİM GÖSTER
+                    contentHtml += `<img src="${escapeHtml(fileUrl)}" alt="${escapeHtml(fileName || 'Resim')}" style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-bottom: 8px; cursor: pointer; object-fit: contain;" onclick="window.open('${escapeHtml(fileUrl)}', '_blank')">`;
                 } else if (isAudio) {
-                    // Ses player göster
+                    // SES PLAYER GÖSTER
                     contentHtml += `<audio controls style="width: 100%; margin-bottom: 8px;">
                         <source src="${escapeHtml(fileUrl)}" type="audio/mpeg">
                         Tarayıcınız ses oynatmayı desteklemiyor.
                     </audio>`;
                 } else {
-                    // Diğer dosyalar için download linki
-                    contentHtml += `<a href="${escapeHtml(fileUrl)}" target="_blank" download style="display: inline-block; padding: 8px 12px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; margin-bottom: 8px;">
+                    // DİĞER DOSYALAR İÇİN İNDİRME LİNKİ
+                    contentHtml += `<a href="${escapeHtml(fileUrl)}" target="_blank" download="${escapeHtml(fileName || 'dosya')}" style="display: inline-block; padding: 10px 16px; background: #f0f0f0; border-radius: 8px; text-decoration: none; color: #333; margin-bottom: 8px; font-weight: 500;">
                         📎 ${escapeHtml(fileName || 'Dosya İndir')}
                     </a>`;
                 }
             }
             
-            // Text varsa göster
-            if (messageText && messageText.trim()) {
-                contentHtml += `<div>${escapeHtml(messageText)}</div>`;
+            // TEXT MESAJ VARSA GÖSTER - SADECE GERÇEK TEXT
+            if (messageText && messageText.trim() && !fileUrl) {
+                // Eğer dosya yoksa text göster
+                contentHtml += `<div style="white-space: pre-wrap; word-wrap: break-word;">${escapeHtml(messageText)}</div>`;
+            } else if (messageText && messageText.trim() && fileUrl) {
+                // Eğer dosya varsa, text'i caption olarak göster (küçük, altında)
+                contentHtml += `<div style="margin-top: 8px; font-size: 0.9em; color: #666;">${escapeHtml(messageText)}</div>`;
             }
             
             messageEl.innerHTML = `
