@@ -686,11 +686,19 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                 let fileUrl = null;
                 let fileName = "";
                 
-                // 1. uploadedFiles array'inden al
+                // 1. uploadedFiles array'inden al - ÖNCE BUNU KONTROL ET
                 if (m.uploadedFiles && m.uploadedFiles.length > 0) {
                     const file = m.uploadedFiles[0];
-                    fileUrl = file.url || file.link || null;
-                    fileName = file.filename || file.name || file.url?.split('/').pop() || '';
+                    // URL'yi al - tüm olası alanları kontrol et
+                    fileUrl = file.url || file.link || file.path || file.fileUrl || null;
+                    fileName = file.filename || file.name || file.fileName || file.url?.split('/').pop() || '';
+                    
+                    // Eğer URL relative ise, base URL ekle
+                    if (fileUrl && !fileUrl.startsWith('http')) {
+                        // SleekFlow base URL'i ile birleştir
+                        const base = sleekflowBaseUrl.replace(/\/+$/, "");
+                        fileUrl = `${base}${fileUrl.startsWith('/') ? '' : '/'}${fileUrl}`;
+                    }
                 }
                 
                 // 2. fileURLs array'inden al
@@ -699,28 +707,40 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     fileName = fileUrl.split('/').pop() || '';
                 }
                 
-                // 3. messageContent bir dosya URL'i gibi görünüyorsa (Conversation/ ile başlıyorsa veya dosya uzantısı varsa)
+                // 3. messageContent'i kontrol et - SADECE DOSYA PATH'İ İSE fileUrl olarak kullan
                 const rawMessageContent = m.messageContent || "";
-                const isFileUrlInContent = rawMessageContent && (
-                    rawMessageContent.includes("Conversation/") || 
-                    rawMessageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i)
-                );
                 
-                if (!fileUrl && isFileUrlInContent) {
-                    // messageContent bir dosya URL'i, onu fileUrl olarak kullan
-                    fileUrl = rawMessageContent;
+                // messageContent SADECE dosya path'i mi yoksa text içeriyor mu kontrol et
+                // Eğer messageContent SADECE "Conversation/..." ile başlıyorsa ve başka text yoksa, dosya path'i
+                const isOnlyFilePath = rawMessageContent && 
+                    rawMessageContent.includes("Conversation/") && 
+                    rawMessageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i) &&
+                    rawMessageContent.trim().length < 200; // Çok uzun değilse (sadece path)
+                
+                if (!fileUrl && isOnlyFilePath) {
+                    // messageContent SADECE dosya path'i, onu fileUrl olarak kullan
+                    // Eğer relative path ise, base URL ile birleştir
+                    if (rawMessageContent.startsWith('http')) {
+                        fileUrl = rawMessageContent; // Zaten tam URL
+                    } else {
+                        // Relative path, base URL ile birleştir
+                        const base = sleekflowBaseUrl.replace(/\/+$/, "");
+                        fileUrl = `${base}${rawMessageContent.startsWith('/') ? '' : '/'}${rawMessageContent}`;
+                    }
                     fileName = rawMessageContent.split('/').pop() || rawMessageContent.split('\\').pop() || '';
                 }
                 
-                // TEXT İÇERİĞİNİ AL (caption veya normal mesaj)
-                // Eğer messageContent dosya URL'i ise, caption'ı al
+                // TEXT İÇERİĞİNİ AL - ÖNCE GERÇEK TEXT ALANLARINI KONTROL ET
                 let messageText = "";
-                if (isFileUrlInContent) {
-                    // messageContent dosya URL'i, caption'ı kontrol et
+                
+                // Eğer messageContent dosya path'i değilse, onu text olarak kullan
+                if (!isOnlyFilePath && rawMessageContent) {
+                    messageText = rawMessageContent;
+                }
+                
+                // Eğer hala text yoksa, diğer alanları kontrol et
+                if (!messageText || !messageText.trim()) {
                     messageText = m.caption || m.text || m.body || m.message || m.content || "";
-                } else {
-                    // messageContent normal text
-                    messageText = rawMessageContent || m.text || m.body || m.message || m.content || m.caption || "";
                 }
                 
                 // Dosya mesajı kontrolü
@@ -731,13 +751,17 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     return null; // Ne text ne dosya varsa filtrele
                 }
                 
-                // Sadece ilk 5 mesaj için detaylı log
+                // Detaylı log - dosya URL'lerini kontrol et
                 if (index < 5) {
                     console.log(`📨 Raw mesaj ${index}:`, {
                         id: m.id,
-                        messageContent: m.messageContent?.substring(0, 30),
+                        messageContent: m.messageContent?.substring(0, 50),
                         messageType: messageType,
-                        finalText: messageText.substring(0, 30)
+                        hasUploadedFiles: !!(m.uploadedFiles && m.uploadedFiles.length > 0),
+                        uploadedFiles: m.uploadedFiles?.map(f => ({ url: f.url?.substring(0, 50), filename: f.filename })) || [],
+                        fileUrl: fileUrl?.substring(0, 50),
+                        fileName: fileName,
+                        finalText: messageText?.substring(0, 30)
                     });
                 }
 
