@@ -12,7 +12,7 @@
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
                 <h2>⚙️ Ayarlar</h2>
-                <button class="btn-icon" id="toggleSidebar">✕</button>
+                <button class="btn-icon" id="toggleSidebar" type="button" onclick="window.toggleSidebar(); return false;">✕</button>
             </div>
             
             <div class="sidebar-content">
@@ -43,7 +43,7 @@
             <!-- Top Bar -->
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button class="btn-icon" id="openSidebar">☰</button>
+                    <button class="btn-icon" id="openSidebar" type="button" onclick="window.toggleSidebar(); return false;">☰</button>
                     <h1>Sleekflow Inbox</h1>
                 </div>
                 <div class="top-bar-right">
@@ -295,10 +295,145 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=32"></script>
     <script>
-        // Sidebar'ı widget için varsayılan açık yap (sadece ilk yüklemede)
+        // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
+        window.openSidebarNow = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) {
+                console.error('❌ #sidebar bulunamadı');
+                return false;
+            }
+            sidebar.classList.add('open');
+            document.body.style.overflow = 'hidden';
+            localStorage.setItem('sidebarClosed', 'false');
+            console.log('✅ Sidebar AÇILDI (widget)');
+            return false;
+        };
+
+        window.closeSidebarNow = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) {
+                console.error('❌ #sidebar bulunamadı');
+                return false;
+            }
+            sidebar.classList.remove('open');
+            document.body.style.overflow = '';
+            localStorage.setItem('sidebarClosed', 'true');
+            console.log('✅ Sidebar KAPATILDI (widget)');
+            return false;
+        };
+
+        window.toggleSidebar = function() {
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar) {
+                console.error('❌ #sidebar bulunamadı');
+                return false;
+            }
+            const isOpen = sidebar.classList.contains('open');
+            console.log('🔄 Toggle sidebar, mevcut durum:', isOpen ? 'AÇIK' : 'KAPALI');
+            if (isOpen) {
+                window.closeSidebarNow();
+            } else {
+                window.openSidebarNow();
+            }
+            return false;
+        };
+
+        // Widget için arama fonksiyonu (case-insensitive - Türkçe karakter desteği ile)
+        function setupWidgetSearch() {
+            const searchInput = document.getElementById('searchConversations');
+            if (!searchInput) return;
+
+            searchInput.addEventListener('input', (e) => {
+                // Türkçe karakterleri normalize et ve küçük harfe çevir
+                const normalizeText = (text) => {
+                    return text
+                        .toLowerCase()
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
+                        .replace(/ı/g, 'i')
+                        .replace(/ğ/g, 'g')
+                        .replace(/ü/g, 'u')
+                        .replace(/ş/g, 's')
+                        .replace(/ö/g, 'o')
+                        .replace(/ç/g, 'c');
+                };
+                
+                const search = normalizeText(e.target.value.trim());
+                const items = document.querySelectorAll('.conversation-item');
+                items.forEach(item => {
+                    const nameEl = item.querySelector('.conversation-name');
+                    const previewEl = item.querySelector('.conversation-preview');
+                    
+                    if (!nameEl) return;
+                    
+                    const name = normalizeText(nameEl.textContent.trim());
+                    const preview = previewEl ? normalizeText(previewEl.textContent.trim()) : '';
+                    
+                    // İsim veya mesaj önizlemesinde ara (case-insensitive)
+                    const matches = search === '' || name.includes(search) || preview.includes(search);
+                    item.style.display = matches ? 'flex' : 'none';
+                });
+            });
+        }
+
+        // Sidebar ve arama için event listener'lar
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 Widget DOM yüklendi, sidebar event listener\'lar ekleniyor...');
+            
+            // Sidebar butonları - ÇOKLU YÖNTEMLE BAĞLA
+            const openBtn = document.getElementById('openSidebar');
+            const closeBtn = document.getElementById('toggleSidebar');
+
+            if (openBtn) {
+                // addEventListener
+                openBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️☰ AÇMA BUTONU TIKLANDI (addEventListener)');
+                    window.toggleSidebar();
+                    return false;
+                });
+                // onclick (backup)
+                openBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️☰ AÇMA BUTONU TIKLANDI (onclick)');
+                    window.toggleSidebar();
+                    return false;
+                };
+                console.log('✅ openSidebar butonu event listener eklendi');
+            } else {
+                console.error('❌ openSidebar butonu bulunamadı!');
+            }
+
+            if (closeBtn) {
+                // addEventListener
+                closeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️✕ KAPATMA BUTONU TIKLANDI (addEventListener)');
+                    window.toggleSidebar();
+                    return false;
+                });
+                // onclick (backup)
+                closeBtn.onclick = function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    console.log('🖱️✕ KAPATMA BUTONU TIKLANDI (onclick)');
+                    window.toggleSidebar();
+                    return false;
+                };
+                console.log('✅ toggleSidebar butonu event listener eklendi');
+            } else {
+                console.error('❌ toggleSidebar butonu bulunamadı!');
+            }
+
+            // Arama fonksiyonunu kur
+            setupWidgetSearch();
+
+            // Sidebar'ı widget için varsayılan açık yap (sadece ilk yüklemede)
             const sidebar = document.getElementById('sidebar');
             if (sidebar && !sidebar.classList.contains('open') && !sidebar.classList.contains('closed')) {
                 // İlk yüklemede açık yap
