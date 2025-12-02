@@ -482,7 +482,9 @@ app.get("/api/sleekflow/conversations", async (req, res) => {
             }).filter(conv => conv !== null); // null olanları filtrele
         } catch (mapError) {
             console.error('❌ Conversation mapping genel hatası:', mapError.message);
-            throw mapError;
+            console.error('   Stack:', mapError.stack);
+            // Mapping hatası olsa bile boş array döndür, uygulama çökmesin
+            mappedConversations = [];
         }
 
         // Channel filtreleme uygula
@@ -551,10 +553,16 @@ app.get("/api/sleekflow/conversations", async (req, res) => {
         
         // 500 hatası - Sunucu hatası
         if (status === 500) {
+            console.error('❌ SleekFlow 500 hatası detayları:');
+            console.error('   Error message:', errorMessage);
+            console.error('   Error data:', JSON.stringify(errorData).substring(0, 500));
+            console.error('   Full error:', err.message);
+            console.error('   Stack:', err.stack);
+            
             return res.status(500).json({ 
                 error: "SleekFlow sunucu hatası",
-                message: errorMessage,
-                details: errorData,
+                message: errorMessage || "Request failed with status code 500",
+                details: errorData ? JSON.stringify(errorData).substring(0, 200) : "",
                 conversations: []
             });
         }
@@ -685,9 +693,25 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                 // ÖNCE DOSYA URL'LERİNİ KONTROL ET
                 let fileUrl = null;
                 let fileName = "";
+                let isStory = false;
+                
+                // 0. INSTAGRAM STORY MESAJLARI İÇİN ÖZEL KONTROL - TÜM OLASI ALANLARI KONTROL ET
+                if (m.storyURL) {
+                    fileUrl = m.storyURL;
+                    fileName = "Instagram Story";
+                    isStory = true;
+                } else if (m.storyUrl) {
+                    fileUrl = m.storyUrl;
+                    fileName = "Instagram Story";
+                    isStory = true;
+                } else if (m.story) {
+                    fileUrl = typeof m.story === 'string' ? m.story : (m.story.url || m.story.link);
+                    fileName = "Instagram Story";
+                    isStory = true;
+                }
                 
                 // 1. uploadedFiles array'inden al - ÖNCE BUNU KONTROL ET
-                if (m.uploadedFiles && m.uploadedFiles.length > 0) {
+                if (!fileUrl && m.uploadedFiles && m.uploadedFiles.length > 0) {
                     const file = m.uploadedFiles[0];
                     // URL'yi al - tüm olası alanları kontrol et
                     fileUrl = file.url || file.link || file.path || file.fileUrl || null;
@@ -707,10 +731,10 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     fileName = fileUrl.split('/').pop() || '';
                 }
                 
-                // 3. messageContent'i kontrol et - DOSYA PATH'İ İSE fileUrl olarak kullan, TEXT DEĞİL
+                // 3. messageContent'i kontrol et - DOSYA PATH'İ İSE fileUrl olarak kullan, TEXT OLARAK GÖSTERME
                 const rawMessageContent = m.messageContent || "";
                 
-                // messageContent dosya path'i mi kontrol et
+                // messageContent dosya path'i mi kontrol et - ÖNCE BUNU KONTROL ET
                 // Eğer "Conversation/" ile başlıyorsa ve dosya uzantısı varsa, bu bir dosya path'i
                 const isFilePath = rawMessageContent && 
                     rawMessageContent.includes("Conversation/") && 
@@ -728,20 +752,24 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     }
                     fileName = rawMessageContent.split('/').pop() || rawMessageContent.split('\\').pop() || '';
                     
-                    // Dosya path'i ise messageContent'i TEXT OLARAK KULLANMA - sadece caption'ı kullan
-                    // messageContent = ""; // Boş bırak, text olarak gösterilmesin
+                    console.log(`📎 Dosya path'i algılandı: ${rawMessageContent.substring(0, 50)} -> fileUrl: ${fileUrl?.substring(0, 50)}`);
                 }
                 
-                // TEXT İÇERİĞİNİ AL
+                // TEXT İÇERİĞİNİ AL - DOSYA PATH'İ İSE TEXT OLARAK KULLANMA
                 let messageText = "";
                 
                 // Eğer messageContent dosya path'i DEĞİLSE, onu text olarak kullan
-                if (!isFilePath && rawMessageContent) {
+                if (!isFilePath && rawMessageContent && rawMessageContent.trim()) {
                     messageText = rawMessageContent;
                 }
                 
                 // Eğer hala text yoksa, caption veya diğer alanları kontrol et
                 if (!messageText || !messageText.trim()) {
+                    messageText = m.caption || m.text || m.body || m.message || m.content || "";
+                }
+                
+                // Eğer fileUrl varsa ama messageText hala dosya path'i içeriyorsa, temizle
+                if (fileUrl && messageText && messageText.includes("Conversation/")) {
                     messageText = m.caption || m.text || m.body || m.message || m.content || "";
                 }
                 
@@ -753,19 +781,25 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     return null; // Ne text ne dosya varsa filtrele
                 }
                 
-                // Detaylı log - dosya URL'lerini kontrol et
-                if (index < 5) {
-                    console.log(`📨 Raw mesaj ${index}:`, {
-                        id: m.id,
-                        messageContent: m.messageContent?.substring(0, 50),
-                        messageType: messageType,
-                        hasUploadedFiles: !!(m.uploadedFiles && m.uploadedFiles.length > 0),
-                        uploadedFiles: m.uploadedFiles?.map(f => ({ url: f.url?.substring(0, 50), filename: f.filename })) || [],
-                        fileUrl: fileUrl?.substring(0, 50),
-                        fileName: fileName,
-                        finalText: messageText?.substring(0, 30)
-                    });
-                }
+                // Detaylı log - dosya URL'lerini kontrol et (HER MESAJ İÇİN)
+                console.log(`📨 Mesaj ${index}:`, {
+                    id: m.id,
+                    messageType: messageType,
+                    messageContent: m.messageContent?.substring(0, 80),
+                    storyURL: m.storyURL?.substring(0, 80) || 'YOK',
+                    hasUploadedFiles: !!(m.uploadedFiles && m.uploadedFiles.length > 0),
+                    uploadedFilesCount: m.uploadedFiles?.length || 0,
+                    uploadedFiles: m.uploadedFiles?.map(f => ({ 
+                        url: f.url?.substring(0, 80), 
+                        filename: f.filename,
+                        mimeType: f.mimeType 
+                    })) || [],
+                    fileURLs: m.fileURLs || [],
+                    isFilePath: !!(m.messageContent && m.messageContent.includes("Conversation/") && m.messageContent.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp)$/i)),
+                    fileUrl: fileUrl?.substring(0, 80) || 'YOK',
+                    fileName: fileName || 'YOK',
+                    finalText: messageText?.substring(0, 50) || 'BOŞ'
+                });
 
                 return {
                     id: m.id || m.message_id || `msg_${index}`,
@@ -777,7 +811,8 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
                     type: messageType,
                     channel: m.channel || m.channelName || "",
                     fileUrl: fileUrl || null, // Dosya URL'i (video, resim, dosya için)
-                    fileName: fileName || null // Dosya adı
+                    fileName: fileName || null, // Dosya adı
+                    isStory: isStory // Instagram story mesajı mı?
                 };
             } catch (mapError) {
                 console.error(`❌ Mesaj map hatası (index ${index}):`, mapError.message, m);

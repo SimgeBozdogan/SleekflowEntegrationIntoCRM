@@ -586,8 +586,17 @@ function renderMessages(messages) {
             let messageText = msg.text || msg.content || '';
             const messageTime = formatTime(msg.timestamp || msg.createdAt || msg.created_at || new Date());
             const messageType = msg.type || 'text';
-            const fileUrl = msg.fileUrl || null;
-            const fileName = msg.fileName || '';
+            let fileUrl = msg.fileUrl || null;
+            let fileName = msg.fileName || '';
+            const isStory = msg.isStory || false;
+            
+            // Eğer messageText bir dosya path'i gibi görünüyorsa ve fileUrl yoksa, onu fileUrl yap
+            if (!fileUrl && messageText && messageText.includes("Conversation/") && messageText.match(/\.(mp4|mp3|pdf|jpg|jpeg|png|gif|webp|doc|docx|xls|xlsx|avi|mov|wmv|webm)$/i)) {
+                console.log(`⚠️ Frontend: messageText dosya path'i gibi görünüyor, fileUrl'e çevriliyor: ${messageText.substring(0, 50)}`);
+                fileUrl = messageText;
+                fileName = messageText.split('/').pop() || messageText.split('\\').pop() || '';
+                messageText = ""; // Text olarak gösterme
+            }
             
             // Eğer ne text ne dosya varsa, ATLA
             if ((!messageText || !messageText.trim()) && !fileUrl) {
@@ -600,20 +609,42 @@ function renderMessages(messages) {
                 direction: msg.direction,
                 type: messageType,
                 hasText: !!messageText,
-                hasFile: !!fileUrl
+                hasFile: !!fileUrl,
+                fileUrl: fileUrl?.substring(0, 50)
             });
             
             // Mesaj içeriğini oluştur - NORMAL MESAJLAŞMA GİBİ
             let contentHtml = '';
             
-            // DOSYA VARSA GÖSTER - VİDEO, RESİM, DOSYA
+            // DOSYA VARSA GÖSTER - VİDEO, RESİM, DOSYA, INSTAGRAM STORY
             if (fileUrl) {
                 const isVideo = messageType === "video" || fileUrl.match(/\.(mp4|avi|mov|wmv|webm)$/i);
                 const isImage = messageType === "image" || fileUrl.match(/\.(jpg|jpeg|png|gif|webp|jfif)$/i);
                 const isAudio = fileUrl.match(/\.(mp3|wav|ogg|m4a)$/i);
                 
-                if (isVideo) {
-                    // VİDEO PLAYER GÖSTER
+                // INSTAGRAM STORY MESAJLARI - SLEEKFLOW GİBİ GÖSTER
+                if (isStory) {
+                    // Story mesajları için özel card göster (SleekFlow gibi)
+                    contentHtml += `<div style="border: 1px solid #e0e0e0; border-radius: 12px; overflow: hidden; margin-bottom: 8px; background: #fff;">
+                        <div style="padding: 12px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0;">
+                            <div style="font-weight: 600; color: #333; margin-bottom: 4px;">Replied to your story</div>
+                        </div>`;
+                    
+                    if (isVideo) {
+                        contentHtml += `<video controls style="width: 100%; max-height: 500px; display: block;">
+                            <source src="${escapeHtml(fileUrl)}" type="video/mp4">
+                            Tarayıcınız video oynatmayı desteklemiyor.
+                        </video>`;
+                    } else if (isImage) {
+                        contentHtml += `<img src="${escapeHtml(fileUrl)}" alt="Instagram Story" style="width: 100%; max-height: 500px; display: block; object-fit: contain;">`;
+                    }
+                    
+                    contentHtml += `<div style="padding: 8px 12px;">
+                            <a href="${escapeHtml(fileUrl)}" target="_blank" style="color: #0066cc; text-decoration: none; font-size: 0.9em;">View story</a>
+                        </div>
+                    </div>`;
+                } else if (isVideo) {
+                    // NORMAL VİDEO PLAYER
                     contentHtml += `<video controls style="max-width: 100%; max-height: 400px; border-radius: 8px; margin-bottom: 8px; background: #000;">
                         <source src="${escapeHtml(fileUrl)}" type="video/mp4">
                         Tarayıcınız video oynatmayı desteklemiyor.
