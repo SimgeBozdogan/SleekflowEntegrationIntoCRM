@@ -1231,6 +1231,28 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Chat
     elements.refreshConversations?.addEventListener('click', loadConversations);
+    
+    // Test butonu
+    const testButton = document.getElementById('testButton');
+    if (testButton) {
+        testButton.addEventListener('click', () => {
+            console.log('🧪 Test butonuna tıklandı!');
+            if (typeof window.quickTest === 'function') {
+                window.quickTest();
+            } else {
+                console.log('⚠️ Test fonksiyonu henüz yüklenmedi. Lütfen bekleyin...');
+                setTimeout(() => {
+                    if (typeof window.quickTest === 'function') {
+                        window.quickTest();
+                    } else {
+                        console.error('❌ Test fonksiyonu bulunamadı!');
+                    }
+                }, 1000);
+            }
+        });
+        console.log('✅ Test butonu hazır!');
+    }
+    
     elements.sendMessage?.addEventListener('click', sendMessage);
     elements.messageInput?.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -1560,9 +1582,45 @@ if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' |
         }, 3000);
     };
     
+    // Hızlı test butonu - tek komutla test et
+    window.quickTest = function() {
+        console.log('🚀 HIZLI TEST BAŞLIYOR...\n');
+        
+        // 1. Zoho lead data set et (konuşma olmayan)
+        window.zohoCustomerData = {
+            phone: '9999999999',
+            email: 'test-no-conv@example.com',
+            name: 'Test Lead (No Conversations)',
+            id: 'test-123',
+            entity: 'Leads'
+        };
+        
+        // 2. State'i ayarla
+        state.showAllConversations = false;
+        state.filterByZohoLead = true;
+        state.currentConversation = null;
+        
+        // 3. Eğer konuşmalar yüklüyse, filtrele
+        if (state.allConversations && state.allConversations.length > 0) {
+            state.conversations = filterConversationsByZohoLead(state.allConversations);
+            renderConversations();
+            updateChatEmptyView();
+            console.log('✅ Test lead set edildi ve filtreleme yapıldı!');
+            console.log('📊 Durum:');
+            console.log('   - Tüm konuşmalar:', state.allConversations.length);
+            console.log('   - Filtrelenmiş:', state.conversations.length);
+            console.log('   - Buton görünmeli:', state.conversations.length === 0);
+        } else {
+            console.log('⚠️ Konuşmalar henüz yüklenmemiş. Önce Sleekflow\'a bağlanın!');
+            console.log('💡 Konuşmalar yüklendikten sonra tekrar çalıştırın: quickTest()');
+        }
+    };
+    
     console.log('🧪 TEST MODU AKTİF - Console\'da şu komutları kullanabilirsiniz:');
+    console.log('  ⭐ quickTest() - HIZLI TEST (önerilen!)');
     console.log('  testZohoLeadFilter("5551234567", "test@example.com", "Test Lead") - Test lead bilgisi set et');
     console.log('  testShowAllButton() - "Tüm Konuşmaları Gör" butonunu test et');
     console.log('  runFullTest() - Tam otomatik test senaryosu çalıştır');
     console.log('  clearZohoLeadFilter() - Filtreyi temizle');
+    console.log('\n💡 EN KOLAY YOL: Console\'da "quickTest()" yazıp Enter\'a basın!');
 }
