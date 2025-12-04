@@ -506,20 +506,29 @@ function renderConversations() {
             </div>
         `;
         
-        // "Tüm konuşmaları göster" butonuna event listener ekle
-        setTimeout(() => {
-            const showAllBtn = document.getElementById('showAllConversations');
-            if (showAllBtn) {
-                showAllBtn.addEventListener('click', () => {
-                    state.showAllConversations = true;
-                    state.filterByZohoLead = false;
-                    state.conversations = state.allConversations;
-                    renderConversations();
-                    console.log('✅ Tüm konuşmalar gösteriliyor');
-                });
-            }
-        }, 100);
-        return;
+                // "Tüm konuşmaları göster" butonuna event listener ekle
+                setTimeout(() => {
+                    const showAllBtn = document.getElementById('showAllConversations');
+                    if (showAllBtn) {
+                        showAllBtn.addEventListener('click', () => {
+                            state.showAllConversations = true;
+                            state.filterByZohoLead = false;
+                            if (state.allConversations && state.allConversations.length > 0) {
+                                state.conversations = [...state.allConversations]; // Copy array
+                            }
+                            renderConversations();
+                            console.log('✅ Tüm konuşmalar gösteriliyor - Filtre kalıcı olarak kapatıldı');
+                            
+                            // Polling'i durdur ve yeniden başlat (filtreleme olmadan)
+                            if (messagePollInterval) {
+                                clearInterval(messagePollInterval);
+                            }
+                            // Polling'i tekrar başlat ama filtreleme olmadan devam etsin
+                            startMessagePolling();
+                        });
+                    }
+                }, 100);
+                return;
     }
     
     if (state.conversations.length === 0) {
@@ -1238,6 +1247,12 @@ window.addEventListener('message', handleZohoCallback);
 // Listen for Zoho lead data loaded event (from widget)
 window.addEventListener('zohoLeadDataLoaded', (event) => {
     console.log('📋 Zoho lead bilgisi yüklendi, konuşmalar filtreleniyor...', event.detail);
+    
+    // Eğer kullanıcı "Tüm konuşmaları göster" butonuna tıkladıysa, filtrelemeyi tekrar aktif etme
+    if (state && state.showAllConversations) {
+        console.log('ℹ️ Kullanıcı tüm konuşmaları gösteriyor, filtreleme yapılmıyor');
+        return;
+    }
     
     // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
     if (state && state.allConversations && state.allConversations.length > 0) {
