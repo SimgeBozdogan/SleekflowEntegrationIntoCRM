@@ -203,6 +203,13 @@
                                 // UI'da müşteri bilgisini göster (eğer conversation seçilmişse)
                                 updateCustomerInfoInUI();
                                 
+                                // Lead bilgisi yüklendiğini bildir (app.js'de filtreleme yapılacak)
+                                if (typeof window !== 'undefined') {
+                                    window.dispatchEvent(new CustomEvent('zohoLeadDataLoaded', { 
+                                        detail: zohoCustomerData 
+                                    }));
+                                }
+                                
                                 // Conversation'lar yüklendikten sonra eşleştirme yap
                                 // Önce mevcut conversation'ları kontrol et
                                 setTimeout(() => {

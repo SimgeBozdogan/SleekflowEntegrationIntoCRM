@@ -18,9 +18,12 @@ const state = {
         region: 'com'
     },
     conversations: [],
+    allConversations: [], // Tüm konuşmalar (filtreleme için)
     currentConversation: null,
     messages: {},
-    selectedChannelFilter: '' // Kanal filtreleme için
+    selectedChannelFilter: '', // Kanal filtreleme için
+    filterByZohoLead: false, // Zoho lead'e göre filtreleme aktif mi?
+    showAllConversations: false // Tüm konuşmaları göster
 };
 
 // DOM Elements
@@ -412,7 +415,19 @@ async function loadConversations(silent = false) {
         console.log('✅ Konuşmalar alındı:', result);
         
         if (result && result.conversations) {
-            state.conversations = result.conversations;
+            // Tüm konuşmaları sakla
+            state.allConversations = result.conversations;
+            
+            // Zoho lead bilgisi varsa ve filtreleme aktifse, filtrele
+            if (typeof window !== 'undefined' && window.zohoCustomerData && !state.showAllConversations) {
+                state.filterByZohoLead = true;
+                state.conversations = filterConversationsByZohoLead(result.conversations);
+                console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
+            } else {
+                state.filterByZohoLead = false; // Güvenlik: Zoho yoksa filtreleme kapalı
+                state.conversations = result.conversations;
+            }
+            
             console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
             renderConversations();
             
@@ -447,9 +462,65 @@ async function loadConversations(silent = false) {
     }
 }
 
+// Zoho lead bilgisine göre konuşmaları filtrele
+function filterConversationsByZohoLead(conversations) {
+    if (!window.zohoCustomerData) return conversations;
+    
+    const zohoData = window.zohoCustomerData;
+    const filtered = conversations.filter(conv => {
+        // Telefon numarası eşleşmesi
+        if (zohoData.phone && conv.phoneNumber) {
+            const zohoPhone = zohoData.phone.replace(/\D/g, '');
+            const convPhone = conv.phoneNumber.replace(/\D/g, '');
+            if (zohoPhone && convPhone && (convPhone.includes(zohoPhone) || zohoPhone.includes(convPhone))) {
+                return true;
+            }
+        }
+        
+        // Email eşleşmesi
+        if (zohoData.email && conv.email) {
+            if (zohoData.email.toLowerCase() === conv.email.toLowerCase()) {
+                return true;
+            }
+        }
+        
+        return false;
+    });
+    
+    return filtered;
+}
+
 function renderConversations() {
     const list = elements.conversationsList;
     list.innerHTML = '';
+    
+    // Zoho lead filtresi aktifse ve konuşma yoksa, özel mesaj göster
+    if (state.filterByZohoLead && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
+        list.innerHTML = `
+            <div class="empty-state">
+                <p>📭 Bu lead ile konuşma bulunamadı</p>
+                <p class="empty-hint">Bu lead ile henüz bir konuşma yapılmamış</p>
+                <button class="btn btn-primary" id="showAllConversations" style="margin-top: 15px; padding: 10px 20px;">
+                    Tüm konuşmaları göster
+                </button>
+            </div>
+        `;
+        
+        // "Tüm konuşmaları göster" butonuna event listener ekle
+        setTimeout(() => {
+            const showAllBtn = document.getElementById('showAllConversations');
+            if (showAllBtn) {
+                showAllBtn.addEventListener('click', () => {
+                    state.showAllConversations = true;
+                    state.filterByZohoLead = false;
+                    state.conversations = state.allConversations;
+                    renderConversations();
+                    console.log('✅ Tüm konuşmalar gösteriliyor');
+                });
+            }
+        }, 100);
+        return;
+    }
     
     if (state.conversations.length === 0) {
         list.innerHTML = `
@@ -1163,3 +1234,69 @@ function handleZohoCallback(event) {
 
 // Listen for Zoho OAuth callback messages
 window.addEventListener('message', handleZohoCallback);
+
+// Listen for Zoho lead data loaded event (from widget)
+window.addEventListener('zohoLeadDataLoaded', (event) => {
+    console.log('📋 Zoho lead bilgisi yüklendi, konuşmalar filtreleniyor...', event.detail);
+    
+    // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
+    if (state && state.allConversations && state.allConversations.length > 0) {
+        state.showAllConversations = false;
+        state.filterByZohoLead = true;
+        state.conversations = filterConversationsByZohoLead(state.allConversations);
+        renderConversations();
+        console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
+    } else {
+        // Konuşmalar henüz yüklenmediyse, yüklendiğinde otomatik filtreleme yapılacak
+        console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendiğinde otomatik filtreleme yapılacak');
+    }
+});
+
+// TEST MODU: Local'de Zoho olmadan test etmek için console komutları
+// Kullanım: Browser console'da şu komutları çalıştırın:
+// 
+// 1. Test lead bilgisi set et:
+//    window.zohoCustomerData = { name: "Test Lead", phone: "5551234567", email: "test@example.com" };
+//
+// 2. Konuşmaları yeniden yükle (filtreleme otomatik yapılacak):
+//    loadConversations();
+//
+// 3. Filtreyi kaldır (tüm konuşmaları göster):
+//    state.showAllConversations = true; loadConversations();
+//
+// 4. Test lead bilgisini temizle:
+//    window.zohoCustomerData = null; loadConversations();
+//
+// Global'e test fonksiyonları ekle (sadece development için)
+if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    window.testZohoLeadFilter = function(phone, email, name) {
+        window.zohoCustomerData = {
+            phone: phone || '5551234567',
+            email: email || 'test@example.com',
+            name: name || 'Test Lead',
+            id: 'test-123',
+            entity: 'Leads'
+        };
+        console.log('✅ Test lead bilgisi set edildi:', window.zohoCustomerData);
+        console.log('📋 Konuşmalar yeniden yükleniyor...');
+        if (typeof loadConversations === 'function') {
+            loadConversations();
+        }
+    };
+    
+    window.clearZohoLeadFilter = function() {
+        window.zohoCustomerData = null;
+        if (state) {
+            state.showAllConversations = true;
+            state.filterByZohoLead = false;
+        }
+        console.log('✅ Zoho lead filtresi temizlendi');
+        if (typeof loadConversations === 'function') {
+            loadConversations();
+        }
+    };
+    
+    console.log('🧪 TEST MODU AKTİF - Console\'da şu komutları kullanabilirsiniz:');
+    console.log('  testZohoLeadFilter("5551234567", "test@example.com", "Test Lead") - Test lead bilgisi set et');
+    console.log('  clearZohoLeadFilter() - Filtreyi temizle');
+}
