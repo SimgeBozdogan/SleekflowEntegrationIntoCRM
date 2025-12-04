@@ -419,41 +419,20 @@ async function loadConversations(silent = false) {
             // Tüm konuşmaları sakla
             state.allConversations = result.conversations;
             
-            // Zoho lead bilgisi varsa ve filtreleme aktifse, filtrele
-            // ÖNEMLİ: window.zohoCustomerData kontrolü her zaman yapılmalı
+            // Zoho lead bilgisi varsa ve kullanıcı "Tüm konuşmaları göster" dememişse, OTOMATIK filtrele
             const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
             
-            // Eğer pendingZohoFilter flag'i varsa, filtreleme yap
-            if (state.pendingZohoFilter && hasZohoData) {
-                console.log('🔄 Pending Zoho filter aktif, filtreleme yapılıyor...');
-                state.pendingZohoFilter = false;
-                state.showAllConversations = false;
+            if (hasZohoData && !state.showAllConversations) {
+                // OTOMATIK FİLTRELEME - Kullanıcıya sormadan
                 state.filterByZohoLead = true;
                 state.conversations = filterConversationsByZohoLead(result.conversations);
-                console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
-            } else if (hasZohoData && !state.showAllConversations) {
-                state.filterByZohoLead = true;
-                state.conversations = filterConversationsByZohoLead(result.conversations);
-                console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
-                console.log('📋 Filtreleme durumu:', {
-                    zohoData: window.zohoCustomerData,
-                    filteredCount: state.conversations.length,
-                    totalCount: result.conversations.length,
-                    showAllConversations: state.showAllConversations
-                });
+                console.log(`🔍 Zoho lead'e göre OTOMATIK filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
             } else {
-                // Zoho data yoksa veya showAllConversations true ise filtreleme yapma
+                // Zoho data yoksa veya kullanıcı "Tüm konuşmaları göster" dediyse, filtreleme yapma
                 if (!hasZohoData) {
                     state.filterByZohoLead = false;
                 }
-                // showAllConversations true ise filtreleme yapma ama state'i koru
                 state.conversations = result.conversations;
-                console.log('ℹ️ Filtreleme yapılmadı:', {
-                    hasZohoData: hasZohoData,
-                    showAllConversations: state.showAllConversations,
-                    zohoData: hasZohoData ? window.zohoCustomerData : null,
-                    pendingZohoFilter: state.pendingZohoFilter
-                });
             }
             
             console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
@@ -543,9 +522,9 @@ function renderConversations() {
         hasZohoData: !!window.zohoCustomerData
     });
     
-    // Zoho lead filtresi aktifse ve konuşma yoksa, özel mesaj göster
+    // Zoho lead filtresi aktifse ve konuşma yoksa, "Tüm konuşmaları göster" butonu göster
     if (state.filterByZohoLead && state.conversations && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
-        console.log('✅ "Tüm konuşmaları göster" butonu gösteriliyor');
+        console.log('✅ Bu lead ile konuşma yok - "Tüm konuşmaları göster" butonu gösteriliyor');
         list.innerHTML = `
             <div class="empty-state">
                 <p>📭 Bu lead ile konuşma bulunamadı</p>
