@@ -445,7 +445,11 @@ async function loadConversations(silent = false) {
             
             console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
             renderConversations();
-            updateChatEmptyView(); // Chat view'ı güncelle
+            
+            // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
+            setTimeout(() => {
+                updateChatEmptyView();
+            }, 200);
             
             // Zoho widget içinde çalışıyorsa, conversation'lar yüklendiğini bildir
             if (typeof window !== 'undefined') {
@@ -528,22 +532,35 @@ function updateChatEmptyView() {
     
     // Zoho lead data varsa ve filtrelenmiş konuşma yoksa, buton göster
     const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
-    const hasFilteredConversations = state.filterByZohoLead && state.conversations && state.conversations.length > 0;
-    const hasAllConversations = state.allConversations && state.allConversations.length > 0;
-    const noFilteredButHasAll = state.filterByZohoLead && (!state.conversations || state.conversations.length === 0) && hasAllConversations;
+    const conversationsLength = state.conversations ? state.conversations.length : 0;
+    const allConversationsLength = state.allConversations ? state.allConversations.length : 0;
+    const hasFilteredConversations = state.filterByZohoLead && conversationsLength > 0;
+    const hasAllConversations = allConversationsLength > 0;
+    
+    // Koşul: Zoho data var, filtre aktif, filtrelenmiş konuşma yok ama tüm konuşmalar var
+    const shouldShowButton = hasZohoData && 
+                             state.filterByZohoLead && 
+                             conversationsLength === 0 && 
+                             hasAllConversations && 
+                             !state.showAllConversations;
     
     console.log('🔍 updateChatEmptyView - Kontroller:', {
         hasZohoData,
+        filterByZohoLead: state.filterByZohoLead,
+        conversationsLength,
+        allConversationsLength,
         hasFilteredConversations,
         hasAllConversations,
-        noFilteredButHasAll,
         showAllConversations: state.showAllConversations,
-        filterByZohoLead: state.filterByZohoLead,
-        conversationsLength: state.conversations?.length || 0,
-        allConversationsLength: state.allConversations?.length || 0
+        shouldShowButton,
+        zohoData: hasZohoData ? {
+            name: window.zohoCustomerData.name,
+            phone: window.zohoCustomerData.phone?.substring(0, 10) + '...',
+            email: window.zohoCustomerData.email?.substring(0, 15) + '...'
+        } : null
     });
     
-    if (hasZohoData && noFilteredButHasAll && !state.showAllConversations) {
+    if (shouldShowButton) {
         // Zoho lead var ama bu lead ile konuşma yok - mesaj ekranında buton göster
         console.log('✅ Zoho lead ile konuşma yok - Mesaj ekranında "Tüm Konuşmaları Gör" butonu gösteriliyor');
         elements.chatEmpty.style.display = 'flex';
@@ -1421,7 +1438,12 @@ window.addEventListener('message', handleZohoCallback);
             state.filterByZohoLead = true;
             state.conversations = filterConversationsByZohoLead(state.allConversations);
             renderConversations();
-            updateChatEmptyView(); // Chat view'ı güncelle
+            
+            // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
+            setTimeout(() => {
+                updateChatEmptyView();
+            }, 200);
+            
             console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
         } else {
             // Konuşmalar henüz yüklenmediyse, yüklendiğinde otomatik filtreleme yapılacak
