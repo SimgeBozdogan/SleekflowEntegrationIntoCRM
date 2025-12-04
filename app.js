@@ -532,25 +532,40 @@ function updateChatEmptyView() {
     const hasAllConversations = state.allConversations && state.allConversations.length > 0;
     const noFilteredButHasAll = state.filterByZohoLead && (!state.conversations || state.conversations.length === 0) && hasAllConversations;
     
+    console.log('🔍 updateChatEmptyView - Kontroller:', {
+        hasZohoData,
+        hasFilteredConversations,
+        hasAllConversations,
+        noFilteredButHasAll,
+        showAllConversations: state.showAllConversations,
+        filterByZohoLead: state.filterByZohoLead,
+        conversationsLength: state.conversations?.length || 0,
+        allConversationsLength: state.allConversations?.length || 0
+    });
+    
     if (hasZohoData && noFilteredButHasAll && !state.showAllConversations) {
         // Zoho lead var ama bu lead ile konuşma yok - mesaj ekranında buton göster
         console.log('✅ Zoho lead ile konuşma yok - Mesaj ekranında "Tüm Konuşmaları Gör" butonu gösteriliyor');
         elements.chatEmpty.style.display = 'flex';
         elements.chatActive.style.display = 'none';
-        elements.chatEmpty.innerHTML = `
-            <div class="empty-icon">💬</div>
-            <h2>Bu lead ile konuşma bulunamadı</h2>
-            <p>Bu lead ile henüz bir konuşma yapılmamış</p>
-            <button class="btn btn-primary" id="showAllConversationsFromChat" style="margin-top: 20px; padding: 12px 24px; font-size: 16px;">
-                Tüm Konuşmaları Gör
-            </button>
-        `;
         
-        // Buton event listener'ı ekle
+        const chatEmptyHTML = '<div class="empty-icon">💬</div>' +
+            '<h2>Bu lead ile konuşma bulunamadı</h2>' +
+            '<p>Bu lead ile henüz bir konuşma yapılmamış</p>' +
+            '<button class="btn btn-primary" id="showAllConversationsFromChat" style="margin-top: 20px; padding: 12px 24px; font-size: 16px; cursor: pointer;">' +
+            'Tüm Konuşmaları Gör' +
+            '</button>';
+        
+        elements.chatEmpty.innerHTML = chatEmptyHTML;
+        
+        // Buton event listener'ı ekle - daha güvenli yöntem
         setTimeout(() => {
             const showAllBtn = document.getElementById('showAllConversationsFromChat');
             if (showAllBtn) {
-                showAllBtn.addEventListener('click', () => {
+                console.log('✅ Buton bulundu, event listener ekleniyor...');
+                // onClick attribute kullanarak daha güvenli hale getir
+                showAllBtn.onclick = function() {
+                    console.log('🔘 "Tüm Konuşmaları Gör" butonuna tıklandı!');
                     state.showAllConversations = true;
                     state.filterByZohoLead = false;
                     if (state.allConversations && state.allConversations.length > 0) {
@@ -565,18 +580,18 @@ function updateChatEmptyView() {
                         clearInterval(messagePollInterval);
                     }
                     startMessagePolling();
-                });
+                };
+            } else {
+                console.error('❌ Buton bulunamadı!');
             }
         }, 100);
-    } else if (!hasZohoData || state.showAllConversations || hasFilteredConversations) {
+    } else {
         // Normal durum - standart mesaj göster
         elements.chatEmpty.style.display = 'flex';
         elements.chatActive.style.display = 'none';
-        elements.chatEmpty.innerHTML = `
-            <div class="empty-icon">💬</div>
-            <h2>Bir konuşma seçin</h2>
-            <p>Sol taraftan bir konuşma seçerek mesajları görüntüleyin</p>
-        `;
+        elements.chatEmpty.innerHTML = '<div class="empty-icon">💬</div>' +
+            '<h2>Bir konuşma seçin</h2>' +
+            '<p>Sol taraftan bir konuşma seçerek mesajları görüntüleyin</p>';
     }
 }
 
@@ -610,7 +625,10 @@ function renderConversations() {
                 setTimeout(() => {
                     const showAllBtn = document.getElementById('showAllConversations');
                     if (showAllBtn) {
-                        showAllBtn.addEventListener('click', () => {
+                        console.log('✅ Konuşma listesindeki buton bulundu, event listener ekleniyor...');
+                        // onClick kullanarak daha güvenli
+                        showAllBtn.onclick = function() {
+                            console.log('🔘 Konuşma listesindeki "Tüm konuşmaları göster" butonuna tıklandı!');
                             state.showAllConversations = true;
                             state.filterByZohoLead = false;
                             if (state.allConversations && state.allConversations.length > 0) {
@@ -626,7 +644,9 @@ function renderConversations() {
                             }
                             // Polling'i tekrar başlat ama filtreleme olmadan devam etsin
                             startMessagePolling();
-                        });
+                        };
+                    } else {
+                        console.error('❌ Konuşma listesindeki buton bulunamadı!');
                     }
                 }, 100);
                 
