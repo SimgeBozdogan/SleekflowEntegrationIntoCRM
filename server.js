@@ -929,7 +929,8 @@ app.get("/api/sleekflow/conversations/:id/messages", async (req, res) => {
         console.log(`📊 Map sonrası: ${messages.length} mesaj (başlangıç: ${rawMessages.length})`);
         
         // Zaman sırasına göre sırala (en eski üstte)
-        messages.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        // En yeni mesajlar önce gelsin (ters sıralama)
+        messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         console.log(`✅ ${messages.length} mesaj yüklendi ve gönderiliyor (conversation: ${id})`);
         console.log(`📋 Mesaj ID'leri:`, messages.slice(0, 10).map(m => m.id).join(', '), messages.length > 10 ? '...' : '');

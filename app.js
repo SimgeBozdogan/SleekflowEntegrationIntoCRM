@@ -720,9 +720,14 @@ function renderMessages(messages) {
     
     console.log(`✅ ${list.children.length} mesaj render edildi`);
     
-    // Scroll to bottom
+    // Scroll to bottom (en yeni mesajlar altta olduğu için)
     setTimeout(() => {
-        list.scrollTop = list.scrollHeight;
+        const messagesArea = document.getElementById('messagesArea');
+        if (messagesArea) {
+            messagesArea.scrollTop = messagesArea.scrollHeight;
+        } else {
+            list.scrollTop = list.scrollHeight;
+        }
     }, 100);
 }
 
