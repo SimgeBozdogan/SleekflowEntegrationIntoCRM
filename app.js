@@ -1462,7 +1462,107 @@ if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' |
         }
     };
     
+    // "Tüm Konuşmaları Gör" butonunu test et
+    window.testShowAllButton = function() {
+        console.log('🧪 "Tüm Konuşmaları Gör" butonu test ediliyor...');
+        
+        // Önce Zoho lead data set et (konuşma olmayan bir lead)
+        window.zohoCustomerData = {
+            phone: '9999999999', // Var olmayan bir telefon numarası
+            email: 'nonexistent@test.com',
+            name: 'Test Lead (No Conversations)',
+            id: 'test-no-conv',
+            entity: 'Leads'
+        };
+        
+        console.log('✅ Test lead bilgisi set edildi (konuşma olmayan lead)');
+        
+        // State'i sıfırla
+        if (state) {
+            state.showAllConversations = false;
+            state.filterByZohoLead = true;
+            state.currentConversation = null; // Konuşma seçili olmamalı
+        }
+        
+        // Konuşmaları yükle
+        if (typeof loadConversations === 'function') {
+            loadConversations().then(() => {
+                console.log('✅ Konuşmalar yüklendi');
+                
+                // Chat view'ı güncelle
+                if (typeof updateChatEmptyView === 'function') {
+                    updateChatEmptyView();
+                }
+                
+                // Butonun görünüp görünmediğini kontrol et
+                setTimeout(() => {
+                    const chatBtn = document.getElementById('showAllConversationsFromChat');
+                    const listBtn = document.getElementById('showAllConversations');
+                    
+                    if (chatBtn) {
+                        console.log('✅ Mesaj ekranında "Tüm Konuşmaları Gör" butonu bulundu!');
+                        console.log('   Buton görünür mü?', chatBtn.offsetParent !== null);
+                        console.log('   Buton tıklanabilir mi?', chatBtn.onclick !== null);
+                    } else {
+                        console.warn('⚠️ Mesaj ekranında buton bulunamadı!');
+                    }
+                    
+                    if (listBtn) {
+                        console.log('✅ Konuşma listesinde "Tüm konuşmaları göster" butonu bulundu!');
+                    }
+                    
+                    // Durum bilgisi
+                    console.log('📊 Mevcut Durum:');
+                    console.log('   - Zoho Data:', window.zohoCustomerData);
+                    console.log('   - Filtrelenmiş konuşma sayısı:', state.conversations?.length || 0);
+                    console.log('   - Tüm konuşma sayısı:', state.allConversations?.length || 0);
+                    console.log('   - filterByZohoLead:', state.filterByZohoLead);
+                    console.log('   - showAllConversations:', state.showAllConversations);
+                }, 500);
+            }).catch(err => {
+                console.error('❌ Konuşmalar yüklenirken hata:', err);
+            });
+        }
+    };
+    
+    // Otomatik test senaryosu
+    window.runFullTest = function() {
+        console.log('🚀 TAM TEST SENARYOSU BAŞLIYOR...\n');
+        
+        // 1. Adım: Konuşma olmayan bir lead set et
+        console.log('1️⃣ Konuşma olmayan bir lead set ediliyor...');
+        window.testShowAllButton();
+        
+        // 2. Adım: 2 saniye sonra butona tıkla (simüle et)
+        setTimeout(() => {
+            console.log('\n2️⃣ Butona tıklama simüle ediliyor...');
+            const chatBtn = document.getElementById('showAllConversationsFromChat');
+            if (chatBtn && chatBtn.onclick) {
+                chatBtn.onclick();
+                console.log('✅ Buton tıklandı!');
+            } else {
+                console.warn('⚠️ Buton bulunamadı veya tıklanabilir değil!');
+            }
+        }, 2000);
+        
+        // 3. Adım: Sonuçları kontrol et
+        setTimeout(() => {
+            console.log('\n3️⃣ Test sonuçları:');
+            console.log('   - showAllConversations:', state.showAllConversations);
+            console.log('   - filterByZohoLead:', state.filterByZohoLead);
+            console.log('   - Gösterilen konuşma sayısı:', state.conversations?.length || 0);
+            
+            if (state.showAllConversations && !state.filterByZohoLead) {
+                console.log('✅ TEST BAŞARILI! Tüm konuşmalar gösteriliyor.');
+            } else {
+                console.warn('⚠️ TEST BAŞARISIZ! Buton çalışmıyor olabilir.');
+            }
+        }, 3000);
+    };
+    
     console.log('🧪 TEST MODU AKTİF - Console\'da şu komutları kullanabilirsiniz:');
     console.log('  testZohoLeadFilter("5551234567", "test@example.com", "Test Lead") - Test lead bilgisi set et');
+    console.log('  testShowAllButton() - "Tüm Konuşmaları Gör" butonunu test et');
+    console.log('  runFullTest() - Tam otomatik test senaryosu çalıştır');
     console.log('  clearZohoLeadFilter() - Filtreyi temizle');
 }
