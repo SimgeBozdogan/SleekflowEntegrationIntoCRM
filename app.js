@@ -422,17 +422,35 @@ async function loadConversations(silent = false) {
             // Zoho lead bilgisi varsa ve kullanıcı "Tüm konuşmaları göster" dememişse, OTOMATIK filtrele
             const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
             
-            if (hasZohoData && !state.showAllConversations) {
-                // OTOMATIK FİLTRELEME - Kullanıcıya sormadan
-                state.filterByZohoLead = true;
-                state.conversations = filterConversationsByZohoLead(result.conversations);
-                console.log(`🔍 Zoho lead'e göre OTOMATIK filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
-            } else {
-                // Zoho data yoksa veya kullanıcı "Tüm konuşmaları göster" dediyse, filtreleme yapma
-                if (!hasZohoData) {
+            console.log('🔍 loadConversations - Zoho data kontrolü:', {
+                hasZohoData,
+                showAllConversations: state.showAllConversations,
+                filterByZohoLead: state.filterByZohoLead,
+                zohoData: hasZohoData ? {
+                    name: window.zohoCustomerData.name,
+                    phone: window.zohoCustomerData.phone?.substring(0, 10) + '...',
+                    email: window.zohoCustomerData.email?.substring(0, 15) + '...'
+                } : null
+            });
+            
+            // Zoho data varsa VE kullanıcı "Tüm konuşmaları göster" dememişse, MUTLAKA filtrele
+            if (hasZohoData) {
+                if (!state.showAllConversations) {
+                    // OTOMATIK FİLTRELEME - Kullanıcıya sormadan
+                    state.filterByZohoLead = true;
+                    state.conversations = filterConversationsByZohoLead(result.conversations);
+                    console.log(`🔍 Zoho lead'e göre OTOMATIK filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
+                } else {
+                    // Kullanıcı "Tüm konuşmaları göster" dedi, filtreleme yapma
                     state.filterByZohoLead = false;
+                    state.conversations = result.conversations;
+                    console.log('ℹ️ Kullanıcı "Tüm konuşmaları göster" dedi, filtreleme yapılmıyor');
                 }
+            } else {
+                // Zoho data yoksa, tüm konuşmaları göster
+                state.filterByZohoLead = false;
                 state.conversations = result.conversations;
+                console.log('ℹ️ Zoho data yok, tüm konuşmalar gösteriliyor');
             }
             
             // Pending filter varsa, şimdi filtrele
@@ -1403,11 +1421,11 @@ window.addEventListener('message', handleZohoCallback);
             return;
         }
         
-        // Eğer kullanıcı "Tüm konuşmaları göster" butonuna tıkladıysa, filtrelemeyi tekrar aktif etme
-        if (state.showAllConversations) {
-            console.log('ℹ️ Kullanıcı tüm konuşmaları gösteriyor, filtreleme yapılmıyor');
-            return;
-        }
+        // YENİ LEAD'E GİRİLDİĞİNDE: showAllConversations flag'ini sıfırla
+        // Çünkü yeni bir lead'e girildiğinde o lead'e göre filtreleme yapılmalı
+        console.log('🔄 Yeni Zoho lead\'e girildi, showAllConversations sıfırlanıyor...');
+        state.showAllConversations = false;
+        state.filterByZohoLead = true;
         
         // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
         if (state.allConversations && state.allConversations.length > 0) {
