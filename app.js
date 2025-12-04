@@ -423,9 +423,19 @@ async function loadConversations(silent = false) {
                 state.filterByZohoLead = true;
                 state.conversations = filterConversationsByZohoLead(result.conversations);
                 console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
+                console.log('📋 Filtreleme durumu:', {
+                    zohoData: window.zohoCustomerData,
+                    filteredCount: state.conversations.length,
+                    totalCount: result.conversations.length,
+                    showAllConversations: state.showAllConversations
+                });
             } else {
                 state.filterByZohoLead = false; // Güvenlik: Zoho yoksa filtreleme kapalı
                 state.conversations = result.conversations;
+                console.log('ℹ️ Filtreleme yapılmadı:', {
+                    hasZohoData: !!(typeof window !== 'undefined' && window.zohoCustomerData),
+                    showAllConversations: state.showAllConversations
+                });
             }
             
             console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
@@ -464,15 +474,25 @@ async function loadConversations(silent = false) {
 
 // Zoho lead bilgisine göre konuşmaları filtrele
 function filterConversationsByZohoLead(conversations) {
-    if (!window.zohoCustomerData) return conversations;
+    if (!window.zohoCustomerData) {
+        console.log('⚠️ filterConversationsByZohoLead: Zoho customer data yok');
+        return conversations;
+    }
     
     const zohoData = window.zohoCustomerData;
+    console.log('🔍 Filtreleme başlıyor:', {
+        zohoPhone: zohoData.phone,
+        zohoEmail: zohoData.email,
+        totalConversations: conversations.length
+    });
+    
     const filtered = conversations.filter(conv => {
         // Telefon numarası eşleşmesi
         if (zohoData.phone && conv.phoneNumber) {
             const zohoPhone = zohoData.phone.replace(/\D/g, '');
             const convPhone = conv.phoneNumber.replace(/\D/g, '');
             if (zohoPhone && convPhone && (convPhone.includes(zohoPhone) || zohoPhone.includes(convPhone))) {
+                console.log('✅ Telefon eşleşti:', zohoPhone, '==', convPhone, 'Contact:', conv.contactName);
                 return true;
             }
         }
@@ -480,6 +500,7 @@ function filterConversationsByZohoLead(conversations) {
         // Email eşleşmesi
         if (zohoData.email && conv.email) {
             if (zohoData.email.toLowerCase() === conv.email.toLowerCase()) {
+                console.log('✅ Email eşleşti:', zohoData.email, '==', conv.email, 'Contact:', conv.contactName);
                 return true;
             }
         }
@@ -487,6 +508,7 @@ function filterConversationsByZohoLead(conversations) {
         return false;
     });
     
+    console.log(`📊 Filtreleme sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
     return filtered;
 }
 
@@ -494,8 +516,18 @@ function renderConversations() {
     const list = elements.conversationsList;
     list.innerHTML = '';
     
+    // Debug: Durumu logla
+    console.log('🔍 renderConversations - Durum:', {
+        filterByZohoLead: state.filterByZohoLead,
+        conversationsCount: state.conversations?.length || 0,
+        allConversationsCount: state.allConversations?.length || 0,
+        showAllConversations: state.showAllConversations,
+        hasZohoData: !!window.zohoCustomerData
+    });
+    
     // Zoho lead filtresi aktifse ve konuşma yoksa, özel mesaj göster
-    if (state.filterByZohoLead && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
+    if (state.filterByZohoLead && state.conversations && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
+        console.log('✅ "Tüm konuşmaları göster" butonu gösteriliyor');
         list.innerHTML = `
             <div class="empty-state">
                 <p>📭 Bu lead ile konuşma bulunamadı</p>
