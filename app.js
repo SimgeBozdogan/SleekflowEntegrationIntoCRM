@@ -23,7 +23,8 @@ const state = {
     messages: {},
     selectedChannelFilter: '', // Kanal filtreleme için
     filterByZohoLead: false, // Zoho lead'e göre filtreleme aktif mi?
-    showAllConversations: false // Tüm konuşmaları göster
+    showAllConversations: false, // Tüm konuşmaları göster
+    pendingZohoFilter: false // Zoho data geldi ama konuşmalar henüz yüklenmedi
 };
 
 // DOM Elements
@@ -419,7 +420,18 @@ async function loadConversations(silent = false) {
             state.allConversations = result.conversations;
             
             // Zoho lead bilgisi varsa ve filtreleme aktifse, filtrele
-            if (typeof window !== 'undefined' && window.zohoCustomerData && !state.showAllConversations) {
+            // ÖNEMLİ: window.zohoCustomerData kontrolü her zaman yapılmalı
+            const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
+            
+            // Eğer pendingZohoFilter flag'i varsa, filtreleme yap
+            if (state.pendingZohoFilter && hasZohoData) {
+                console.log('🔄 Pending Zoho filter aktif, filtreleme yapılıyor...');
+                state.pendingZohoFilter = false;
+                state.showAllConversations = false;
+                state.filterByZohoLead = true;
+                state.conversations = filterConversationsByZohoLead(result.conversations);
+                console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
+            } else if (hasZohoData && !state.showAllConversations) {
                 state.filterByZohoLead = true;
                 state.conversations = filterConversationsByZohoLead(result.conversations);
                 console.log(`🔍 Zoho lead'e göre filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
@@ -430,11 +442,17 @@ async function loadConversations(silent = false) {
                     showAllConversations: state.showAllConversations
                 });
             } else {
-                state.filterByZohoLead = false; // Güvenlik: Zoho yoksa filtreleme kapalı
+                // Zoho data yoksa veya showAllConversations true ise filtreleme yapma
+                if (!hasZohoData) {
+                    state.filterByZohoLead = false;
+                }
+                // showAllConversations true ise filtreleme yapma ama state'i koru
                 state.conversations = result.conversations;
                 console.log('ℹ️ Filtreleme yapılmadı:', {
-                    hasZohoData: !!(typeof window !== 'undefined' && window.zohoCustomerData),
-                    showAllConversations: state.showAllConversations
+                    hasZohoData: hasZohoData,
+                    showAllConversations: state.showAllConversations,
+                    zohoData: hasZohoData ? window.zohoCustomerData : null,
+                    pendingZohoFilter: state.pendingZohoFilter
                 });
             }
             
@@ -1277,27 +1295,48 @@ function handleZohoCallback(event) {
 window.addEventListener('message', handleZohoCallback);
 
 // Listen for Zoho lead data loaded event (from widget)
-window.addEventListener('zohoLeadDataLoaded', (event) => {
-    console.log('📋 Zoho lead bilgisi yüklendi, konuşmalar filtreleniyor...', event.detail);
-    
-    // Eğer kullanıcı "Tüm konuşmaları göster" butonuna tıkladıysa, filtrelemeyi tekrar aktif etme
-    if (state && state.showAllConversations) {
-        console.log('ℹ️ Kullanıcı tüm konuşmaları gösteriyor, filtreleme yapılmıyor');
-        return;
+// ÖNEMLİ: Bu listener'ı sayfa yüklenmeden önce ekle
+(function() {
+    function handleZohoLeadDataLoaded(event) {
+        console.log('📋 Zoho lead bilgisi yüklendi, konuşmalar filtreleniyor...', event.detail);
+        
+        // State kontrolü
+        if (!state) {
+            console.warn('⚠️ State henüz hazır değil, 500ms sonra tekrar deneniyor...');
+            setTimeout(() => handleZohoLeadDataLoaded(event), 500);
+            return;
+        }
+        
+        // Eğer kullanıcı "Tüm konuşmaları göster" butonuna tıkladıysa, filtrelemeyi tekrar aktif etme
+        if (state.showAllConversations) {
+            console.log('ℹ️ Kullanıcı tüm konuşmaları gösteriyor, filtreleme yapılmıyor');
+            return;
+        }
+        
+        // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
+        if (state.allConversations && state.allConversations.length > 0) {
+            console.log('🔄 Mevcut konuşmalar filtreleniyor...');
+            state.showAllConversations = false;
+            state.filterByZohoLead = true;
+            state.conversations = filterConversationsByZohoLead(state.allConversations);
+            renderConversations();
+            console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
+        } else {
+            // Konuşmalar henüz yüklenmediyse, yüklendiğinde otomatik filtreleme yapılacak
+            console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendiğinde otomatik filtreleme yapılacak');
+            // Konuşmalar yüklendiğinde filtreleme yapılması için bir flag set et
+            state.pendingZohoFilter = true;
+        }
     }
     
-    // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
-    if (state && state.allConversations && state.allConversations.length > 0) {
-        state.showAllConversations = false;
-        state.filterByZohoLead = true;
-        state.conversations = filterConversationsByZohoLead(state.allConversations);
-        renderConversations();
-        console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
-    } else {
-        // Konuşmalar henüz yüklenmediyse, yüklendiğinde otomatik filtreleme yapılacak
-        console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendiğinde otomatik filtreleme yapılacak');
+    // Event listener'ı ekle (hem window hem document için)
+    if (typeof window !== 'undefined') {
+        window.addEventListener('zohoLeadDataLoaded', handleZohoLeadDataLoaded);
+        // Ayrıca document'e de ekle (bazı durumlarda gerekli)
+        document.addEventListener('zohoLeadDataLoaded', handleZohoLeadDataLoaded);
+        console.log('✅ Zoho lead data event listener eklendi');
     }
-});
+})();
 
 // TEST MODU: Local'de Zoho olmadan test etmek için console komutları
 // Kullanım: Browser console'da şu komutları çalıştırın:

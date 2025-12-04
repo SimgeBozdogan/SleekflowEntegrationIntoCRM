@@ -205,9 +205,24 @@
                                 
                                 // Lead bilgisi yüklendiğini bildir (app.js'de filtreleme yapılacak)
                                 if (typeof window !== 'undefined') {
-                                    window.dispatchEvent(new CustomEvent('zohoLeadDataLoaded', { 
+                                    console.log('📤 Zoho lead data event dispatch ediliyor...');
+                                    const event = new CustomEvent('zohoLeadDataLoaded', { 
                                         detail: zohoCustomerData 
-                                    }));
+                                    });
+                                    window.dispatchEvent(event);
+                                    // Ayrıca document'e de dispatch et (bazı durumlarda gerekli)
+                                    document.dispatchEvent(event);
+                                    console.log('✅ Zoho lead data event dispatch edildi');
+                                    
+                                    // Eğer app.js henüz yüklenmemişse, bir süre sonra tekrar dene
+                                    setTimeout(() => {
+                                        if (typeof window !== 'undefined' && window.zohoCustomerData) {
+                                            console.log('🔄 Zoho lead data event tekrar dispatch ediliyor (retry)...');
+                                            window.dispatchEvent(new CustomEvent('zohoLeadDataLoaded', { 
+                                                detail: window.zohoCustomerData 
+                                            }));
+                                        }
+                                    }, 1000);
                                 }
                                 
                                 // Conversation'lar yüklendikten sonra eşleştirme yap
