@@ -394,114 +394,38 @@ async function testZoho() {
 
 // Conversations Functions
 async function loadConversations(silent = false) {
-    // Bağlantı yoksa konuşmaları yükleme
     if (!state.sleekflow.connected) {
         console.log('⚠️ SleekFlow bağlantısı yok, konuşmalar yüklenmiyor');
         return;
     }
-    
+
     if (!silent) {
         console.log('📥 Konuşmalar yükleniyor...');
         showLoading();
     }
-    
+
     try {
         const url = state.selectedChannelFilter
             ? `/sleekflow/conversations?channel=${encodeURIComponent(state.selectedChannelFilter)}`
             : '/sleekflow/conversations';
-        
+
         const result = await apiRequest(url, 'GET');
         const conversations = (result && result.conversations) ? result.conversations : [];
-        
-        // Her zaman tüm konuşmaları burada saklıyoruz
+
+        // Zoho ile ilgili hiçbir filtre YOK – sadece tüm konuşmaları saklıyoruz
         state.allConversations = conversations;
-        
-        // Zoho datası var mı?
-        const zohoData =
-            (typeof window !== 'undefined' && window.zohoCustomerData)
-                ? window.zohoCustomerData
-                : null;
-        
-        const hasZohoData = !!(
-            zohoData &&
-            (zohoData.phone || zohoData.email)
-        );
-        
-        console.log('[loadConversations] zohoCustomerData:', zohoData);
-        console.log('[loadConversations] hasZohoData:', hasZohoData, 'showAllConversations:', state.showAllConversations);
-        console.log('[loadConversations] window.zohoCustomerData direkt kontrol:', window.zohoCustomerData);
-        console.log('[loadConversations] window.parent.zohoCustomerData:', window.parent && window.parent.zohoCustomerData);
-        console.log('[loadConversations] window.top.zohoCustomerData:', window.top && window.top.zohoCustomerData);
-        
-        // Eğer window.zohoCustomerData null ise, parent veya top window'u kontrol et (iframe durumu için)
-        if (!zohoData && typeof window !== 'undefined') {
-            if (window.parent && window.parent.zohoCustomerData) {
-                console.log('✅ Parent window\'da Zoho data bulundu, kullanılıyor...');
-                zohoData = window.parent.zohoCustomerData;
-                window.zohoCustomerData = zohoData; // Local window'a da kopyala
-            } else if (window.top && window.top.zohoCustomerData) {
-                console.log('✅ Top window\'da Zoho data bulundu, kullanılıyor...');
-                zohoData = window.top.zohoCustomerData;
-                window.zohoCustomerData = zohoData; // Local window'a da kopyala
-            }
-        }
-        
-        // hasZohoData'yı yeniden hesapla
-        const finalHasZohoData = !!(
-            zohoData &&
-            (zohoData.phone || zohoData.email)
-        );
-        
-        console.log('[loadConversations] Final hasZohoData:', finalHasZohoData);
-        
-        if (finalHasZohoData && !state.showAllConversations) {
-            // Yeni lead sayfasına girildiğinde: sadece o lead'in konuşmaları
-            state.filterByZohoLead = true;
-            state.conversations = filterConversationsByZohoLead(conversations);
-            console.log(`✅ Zoho lead'e göre filtrelendi: ${state.conversations.length}/${conversations.length}`);
-            console.log(`🔍 Filtrelenmiş konuşmalar:`, state.conversations.map(c => ({ name: c.contactName, phone: c.phoneNumber, email: c.email })));
-        } else {
-            // Ya Zoho datası yok ya da kullanıcı "tüm konuşmaları göster" dedi
-            state.filterByZohoLead = false;
-            state.conversations = conversations;
-            console.log('ℹ️ Filtre yok, tüm konuşmalar gösteriliyor:', conversations.length);
-            if (!hasZohoData) {
-                console.log('⚠️ Zoho data yok - hasZohoData:', hasZohoData, 'zohoData:', zohoData);
-            }
-            if (state.showAllConversations) {
-                console.log('ℹ️ showAllConversations=true, filtreleme kapalı');
-            }
-        }
-        
+        state.conversations = conversations;
+
         renderConversations();
         updateChatEmptyView();
-        updateLeadFilterInfo();
-        
-        // Eğer pendingZohoFilter flag'i varsa, şimdi filtrele
-        if (state.pendingZohoFilter && window.zohoCustomerData) {
-            console.log('🔄 Pending Zoho filter var, şimdi filtreleme yapılıyor...');
-            state.pendingZohoFilter = false;
-            state.showAllConversations = false;
-            state.filterByZohoLead = true;
-            state.conversations = filterConversationsByZohoLead(state.conversations);
-            renderConversations();
-            updateChatEmptyView();
-            updateLeadFilterInfo();
-            console.log(`✅ Pending filter uygulandı: ${state.conversations.length}/${state.allConversations.length} konuşma`);
-        }
-        
-        // Zoho widget içinde çalışıyorsa event gönder
-        if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('conversationsLoaded'));
-        }
     } catch (error) {
         const errorMsg = error.message || 'Bilinmeyen hata';
-        
+
         if (errorMsg.includes('SleekFlow sunucu hatası')) {
             console.warn('⚠️ SleekFlow 500 (Internal Server Error) verdi, mevcut konuşma listesi korunuyor.');
             return;
         }
-        
+
         if (!silent) {
             console.error('❌ Konuşmalar yüklenemedi:', errorMsg);
             if (errorMsg.includes('401') || errorMsg.includes('bağlantısı yok')) {
@@ -576,6 +500,36 @@ function filterConversationsByZohoLead(conversations) {
 function updateChatEmptyView() {
     // Eğer bir konuşma seçiliyse, chatEmpty'i gösterme
     if (state.currentConversation) {
+        return;
+    }
+
+    // 🔴 Konuşmalar açılmadan önce, burada da aynı butonu göster
+    if (!state.showAllConversations) {
+        elements.chatEmpty.style.display = 'flex';
+        elements.chatActive.style.display = 'none';
+
+        elements.chatEmpty.innerHTML = `
+            <div class="empty-icon">💬</div>
+            <h2>Konuşmaları yüklemek için tıklayın</h2>
+            <p>Sleekflow hesabınızdaki tüm konuşmaları görmek için önce yükleyelim.</p>
+            <button class="btn btn-primary" id="initShowAllConversationsChat" style="margin-top: 20px; padding: 12px 24px;">
+                Tüm konuşmaları göster
+            </button>
+        `;
+
+        setTimeout(() => {
+            const btn = document.getElementById('initShowAllConversationsChat');
+            if (!btn) return;
+
+            btn.onclick = async function () {
+                console.log('🔘 Chat içindeki "Tüm konuşmaları göster" butonuna tıklandı');
+                state.showAllConversations = true;
+                await loadConversations(false);
+                renderConversations();
+                updateChatEmptyView();
+            };
+        }, 50);
+
         return;
     }
     
