@@ -552,17 +552,8 @@ function updateChatEmptyView() {
     }
     
     // Zoho lead data varsa ve filtrelenmiş konuşma yoksa, buton göster
-    // Hem window, hem parent, hem top window'u kontrol et (iframe durumu için)
+    // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
     let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
-    if (!hasZohoData && typeof window !== 'undefined') {
-        if (window.parent && window.parent.zohoCustomerData) {
-            hasZohoData = true;
-            window.zohoCustomerData = window.parent.zohoCustomerData; // Local'e kopyala
-        } else if (window.top && window.top.zohoCustomerData) {
-            hasZohoData = true;
-            window.zohoCustomerData = window.top.zohoCustomerData; // Local'e kopyala
-        }
-    }
     const conversationsLength = state.conversations ? state.conversations.length : 0;
     const allConversationsLength = state.allConversations ? state.allConversations.length : 0;
     const hasFilteredConversations = state.filterByZohoLead && conversationsLength > 0;
@@ -857,20 +848,9 @@ function updateLeadFilterInfo() {
     const infoEl = document.getElementById('leadFilterInfo');
     if (!infoEl) return;
     
-    // Hem window, hem parent, hem top window'u kontrol et (iframe durumu için)
+    // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
     let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData &&
                         (window.zohoCustomerData.phone || window.zohoCustomerData.email);
-    if (!hasZohoData && typeof window !== 'undefined') {
-        if (window.parent && window.parent.zohoCustomerData && 
-            (window.parent.zohoCustomerData.phone || window.parent.zohoCustomerData.email)) {
-            hasZohoData = true;
-            window.zohoCustomerData = window.parent.zohoCustomerData; // Local'e kopyala
-        } else if (window.top && window.top.zohoCustomerData &&
-                   (window.top.zohoCustomerData.phone || window.top.zohoCustomerData.email)) {
-            hasZohoData = true;
-            window.zohoCustomerData = window.top.zohoCustomerData; // Local'e kopyala
-        }
-    }
     
     // Eğer Zoho datası yoksa ya da tüm konuşmalar modundayız => barı gizle
     if (!hasZohoData || state.showAllConversations || !state.filterByZohoLead) {
