@@ -641,35 +641,72 @@ function renderConversations() {
 
     // 🔴 1. ADIM: Kullanıcı henüz "Tüm konuşmaları göster" demediyse
     if (!state.showAllConversations) {
-        console.log('ℹ️ showAllConversations = false, sadece buton gösteriliyor');
+        console.log('ℹ️ showAllConversations = false');
 
-        list.innerHTML = `
-            <div class="empty-state">
-                <p>📭 Sleekflow konuşmalarını görmek için aşağıdaki butona tıklayın.</p>
-                <button class="btn btn-primary" id="initShowAllConversations" style="margin-top: 15px; padding: 10px 20px;">
-                    Tüm konuşmaları göster
-                </button>
-            </div>
-        `;
+        // Zoho lead data var mı kontrol et
+        const zohoData = (typeof window !== 'undefined' && window.zohoCustomerData) 
+            ? window.zohoCustomerData 
+            : null;
+        const hasZohoData = !!(zohoData && (zohoData.phone || zohoData.email));
 
-        setTimeout(() => {
-            const btn = document.getElementById('initShowAllConversations');
-            if (!btn) return;
+        // Eğer Zoho data varsa ve eşleşen konuşmalar varsa, önce onları göster
+        if (hasZohoData && state.filterByZohoLead && state.conversations && state.conversations.length > 0) {
+            console.log('✅ Zoho lead ile eşleşen konuşmalar var, gösteriliyor:', state.conversations.length);
+            // Konuşmaları göster (aşağıdaki kod devam edecek - return etme!)
+        } else if (hasZohoData && state.filterByZohoLead && state.conversations && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
+            // Zoho lead var ama eşleşen konuşma yok (tüm konuşmalar yüklendi ama eşleşen yok)
+            console.log('ℹ️ Zoho lead var ama eşleşen konuşma yok');
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>📭 Bu lead ile henüz bir konuşma yapılmamış</p>
+                    <button class="btn btn-primary" id="initShowAllConversations" style="margin-top: 15px; padding: 10px 20px;">
+                        Tüm konuşmaları göster
+                    </button>
+                </div>
+            `;
 
-            btn.onclick = async function () {
-                console.log('🔘 İlk "Tüm konuşmaları göster" butonuna tıklandı');
-                state.showAllConversations = true;   // Artık listeyi gösterebiliriz
+            setTimeout(() => {
+                const btn = document.getElementById('initShowAllConversations');
+                if (!btn) return;
 
-                // Konuşmaları yükle
-                await loadConversations(false);
+                btn.onclick = async function () {
+                    console.log('🔘 "Tüm konuşmaları göster" butonuna tıklandı');
+                    state.showAllConversations = true;
+                    await loadConversations(false);
+                    renderConversations();
+                    updateChatEmptyView();
+                };
+            }, 50);
 
-                // Yüklendikten sonra tekrar çiz
-                renderConversations();
-                updateChatEmptyView();
-            };
-        }, 50);
+            return;
+        } else if (!hasZohoData || !state.filterByZohoLead) {
+            // Zoho data yok veya filtre aktif değil, sadece buton göster
+            console.log('ℹ️ Zoho data yok veya filtre aktif değil, sadece buton gösteriliyor');
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>📭 Sleekflow konuşmalarını görmek için aşağıdaki butona tıklayın.</p>
+                    <button class="btn btn-primary" id="initShowAllConversations" style="margin-top: 15px; padding: 10px 20px;">
+                        Tüm konuşmaları göster
+                    </button>
+                </div>
+            `;
 
-        return;
+            setTimeout(() => {
+                const btn = document.getElementById('initShowAllConversations');
+                if (!btn) return;
+
+                btn.onclick = async function () {
+                    console.log('🔘 İlk "Tüm konuşmaları göster" butonuna tıklandı');
+                    state.showAllConversations = true;
+                    await loadConversations(false);
+                    renderConversations();
+                    updateChatEmptyView();
+                };
+            }, 50);
+
+            return;
+        }
+        // Eğer Zoho lead konuşmaları varsa, aşağıdaki kod devam edecek (return etmedik)
     }
     
     // Debug: Durumu logla
