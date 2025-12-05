@@ -328,8 +328,23 @@
         
         // Zoho'yu başlat (yüklendikten sonra)
         window.addEventListener('load', function() {
-            setTimeout(initZoho, 1000);
+            console.log('📄 window.load event - Zoho widget sayfası yüklendi');
+            console.log('🔍 ZOHO kontrolü:', typeof ZOHO !== 'undefined' ? 'VAR' : 'YOK');
+            console.log('🔍 window.location:', window.location.href);
+            setTimeout(() => {
+                console.log('⏰ initZoho çağrılıyor...');
+                initZoho();
+            }, 1000);
         });
+        
+        // Eğer sayfa zaten yüklüyse, hemen çalıştır
+        if (document.readyState === 'complete') {
+            console.log('📄 Sayfa zaten yüklü (complete), initZoho hemen çağrılıyor...');
+            setTimeout(() => {
+                console.log('⏰ initZoho çağrılıyor (sayfa zaten yüklü)...');
+                initZoho();
+            }, 1000);
+        }
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
