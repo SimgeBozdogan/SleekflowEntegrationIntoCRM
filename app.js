@@ -481,10 +481,10 @@ function filterConversationsByZohoLead(conversations) {
         return conversations;
     }
     
-    // Zoho ismini normalize et (küçük harf, boşlukları temizle, Türkçe karakterleri normalize et)
+    // Zoho ismini normalize et (BÜYÜK/KÜÇÜK HARF DUYARSIZ, boşlukları temizle, Türkçe karakterleri normalize et)
     const normalizeName = (name) => {
         return name
-            .toLowerCase()
+            .toLowerCase() // BÜYÜK/KÜÇÜK HARF DUYARSIZ eşleştirme için küçük harfe çevir
             .trim()
             .normalize('NFD')
             .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
