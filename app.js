@@ -428,7 +428,6 @@ async function loadConversations(silent = false) {
         const result = await apiRequest(url, 'GET');
         const conversations = (result && result.conversations) ? result.conversations : [];
 
-        // Debug: ilk birkaç konuşmayı logla
         console.log('📊 SleekFlow API dönüşü (ilk 10):',
             conversations.slice(0, 10).map(c => ({
                 id: c.id,
@@ -438,27 +437,60 @@ async function loadConversations(silent = false) {
                 channel: c.channel || c.rawChannel
             }))
         );
-        
-        // Zoho data varsa, filtreleme öncesi durumu logla
-        if (window.zohoCustomerData) {
-            console.log('🔍 Zoho data mevcut, isim bazlı filtreleme yapılacak:', {
-                zohoName: window.zohoCustomerData.name,
-                filterByZohoLead: state.filterByZohoLead,
-                totalConversations: conversations.length
-            });
-        }
 
-        // Tüm konuşmaları kaydet
+        // 🔹 1) Tüm konuşmaları kaydet (istersek sonra "hepsini göster" için)
         state.allConversations = conversations;
 
-        // Eğer şu anda lead filtresi açıksa → filtrele
-        if (state.filterByZohoLead && window.zohoCustomerData) {
-            state.conversations = filterConversationsByZohoLead(conversations);
+        // 🔹 2) Varsayılan: hiç filtre yoksa tüm konuşmalar
+        let filtered = conversations;
+
+        // 🔹 3) Zoho'dan lead ismi geldiyse → SADECE İSİMLE FİLTRE
+        if (typeof window !== 'undefined' && window.zohoCustomerData) {
+            const zoho = window.zohoCustomerData;
+            const zohoNameRaw = zoho.name || zoho.Full_Name || '';
+            const zohoName = normalizeName(zohoNameRaw);
+
+            console.log('🔍 Zoho lead ismi ile filtreleme denemesi:', {
+                zohoNameRaw,
+                zohoName,
+                totalConversations: conversations.length
+            });
+
+            if (zohoName) {
+                filtered = conversations.filter(conv => {
+                    const convNameRaw = conv.contactName || conv.name || '';
+                    const convName = normalizeName(convNameRaw);
+
+                    if (!convName) return false;
+
+                    // Tam eşleşme
+                    if (convName === zohoName) {
+                        console.log('✅ İsim tam eşleşti:', { zohoNameRaw, convNameRaw });
+                        return true;
+                    }
+
+                    // Birbirini içeriyorsa (Adil Yaman / Adil Y.)
+                    if (
+                        convName.length > 3 && zohoName.length > 3 &&
+                        (convName.includes(zohoName) || zohoName.includes(convName))
+                    ) {
+                        console.log('✅ İsim benzer / içeriyor:', { zohoNameRaw, convNameRaw });
+                        return true;
+                    }
+
+                    return false;
+                });
+
+                console.log(`📊 İSİM FİLTRE sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
+            } else {
+                console.log('⚠️ Zoho lead ismi boş, filtre uygulanmadı');
+            }
         } else {
-            // Normalde tüm konuşmalar
-            state.conversations = conversations;
+            console.log('ℹ️ window.zohoCustomerData yok, filtre uygulanmıyor (tüm konuşmalar gösterilecek)');
         }
 
+        // 🔹 4) Sonucu state'e yaz ve render et
+        state.conversations = filtered;
         renderConversations();
         updateChatEmptyView();
         updateLeadFilterInfo();
