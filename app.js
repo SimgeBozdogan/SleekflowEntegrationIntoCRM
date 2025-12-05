@@ -23,7 +23,7 @@ const state = {
     messages: {},
     selectedChannelFilter: '', // Kanal filtreleme için
     filterByZohoLead: false, // Zoho lead'e göre filtreleme aktif mi?
-    showAllConversations: false, // Tüm konuşmaları göster
+    showAllConversations: false, // Tüm konuşmaları göster (BAŞLANGIÇTA HER ZAMAN false - sadece kullanıcı butona basarsa true olur)
     pendingZohoFilter: false // Zoho data geldi ama konuşmalar henüz yüklenmedi
 };
 
@@ -419,12 +419,13 @@ async function loadConversations(silent = false) {
     // Bu sayede her yeni lead'e girildiğinde o lead'e göre filtreleme yapılır
     // NOT: silent mode'da bile kontrol yap (polling sırasında da filtreleme yapılmalı)
     if (typeof window !== 'undefined' && window.zohoCustomerData) {
-        // Zoho data varsa, showAllConversations'ı false yap (yeni lead'e göre filtreleme yapılacak)
+        // Zoho data varsa, showAllConversations'ı HER ZAMAN false yap (yeni lead'e göre filtreleme yapılacak)
         // Sadece kullanıcı "Tüm konuşmaları göster" butonuna basarsa true olur
-        if (state.showAllConversations) {
-            console.log('🔄 Zoho data var ama showAllConversations = true, yeni lead için sıfırlanıyor...');
-            state.showAllConversations = false;
-        }
+        // Ama burada sıfırlamıyoruz çünkü kullanıcı butona basmış olabilir
+        // Sadece yeni lead'e girildiğinde handleZohoLeadDataLoaded içinde sıfırlanıyor
+        console.log('🔍 loadConversations - Zoho data var:', window.zohoCustomerData);
+    } else {
+        console.log('⚠️ loadConversations - window.zohoCustomerData YOK!');
     }
 
     if (!silent) {
