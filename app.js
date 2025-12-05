@@ -1520,8 +1520,13 @@ window.addEventListener('message', handleZohoCallback);
         // Eğer Zoho data zaten varsa (sayfa yeniden yüklendiğinde veya widget açıldığında), hemen filtrele
         // Bu önemli çünkü event dispatch edildiğinde app.js henüz yüklenmemiş olabilir
         function checkAndFilterExistingZohoData() {
+            console.log('🔍 Zoho data kontrol ediliyor...');
+            console.log('🔍 window.zohoCustomerData:', window.zohoCustomerData);
+            console.log('🔍 state:', state ? 'VAR' : 'YOK');
+            console.log('🔍 state.allConversations:', state && state.allConversations ? state.allConversations.length : 'YOK');
+            
             if (window.zohoCustomerData && state) {
-                console.log('🔍 Mevcut Zoho data kontrol ediliyor:', window.zohoCustomerData);
+                console.log('✅ Mevcut Zoho data bulundu:', window.zohoCustomerData);
                 
                 // Eğer konuşmalar yüklenmişse, hemen filtrele
                 if (state.allConversations && state.allConversations.length > 0) {
@@ -1538,6 +1543,8 @@ window.addEventListener('message', handleZohoCallback);
                     console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendikten sonra filtrelenecek...');
                     state.pendingZohoFilter = true;
                 }
+            } else {
+                console.log('⚠️ Zoho data yok veya state hazır değil');
             }
         }
         
@@ -1549,6 +1556,8 @@ window.addEventListener('message', handleZohoCallback);
         setTimeout(checkAndFilterExistingZohoData, 2000);
         setTimeout(checkAndFilterExistingZohoData, 3000);
         setTimeout(checkAndFilterExistingZohoData, 5000);
+        setTimeout(checkAndFilterExistingZohoData, 7000);
+        setTimeout(checkAndFilterExistingZohoData, 10000);
     }
 })();
 
