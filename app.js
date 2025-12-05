@@ -1709,16 +1709,19 @@ window.addEventListener('message', handleZohoCallback);
             console.log('🔍 Zoho data kontrol ediliyor...');
             console.log('🔍 window.zohoCustomerData:', window.zohoCustomerData);
             console.log('🔍 state:', state ? 'VAR' : 'YOK');
+            console.log('🔍 state.showAllConversations:', state ? state.showAllConversations : 'YOK');
             console.log('🔍 state.allConversations:', state && state.allConversations ? state.allConversations.length : 'YOK');
             
             if (window.zohoCustomerData && state) {
                 console.log('✅ Mevcut Zoho data bulundu:', window.zohoCustomerData);
                 
+                // HER ZAMAN showAllConversations = false yap (yeni lead'e girildiğinde)
+                state.showAllConversations = false;
+                state.filterByZohoLead = true;
+                
                 // Eğer konuşmalar yüklenmişse, hemen filtrele
                 if (state.allConversations && state.allConversations.length > 0) {
                     console.log('🔄 Sayfa yüklendi, mevcut Zoho data ile filtreleme yapılıyor...');
-                    state.showAllConversations = false;
-                    state.filterByZohoLead = true;
                     state.conversations = filterConversationsByZohoLead(state.allConversations);
                     renderConversations();
                     updateChatEmptyView();
