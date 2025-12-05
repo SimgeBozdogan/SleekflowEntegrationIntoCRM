@@ -463,7 +463,7 @@ async function loadConversations(silent = false) {
     }
 }
 
-// Zoho lead bilgisine göre konuşmaları filtrele
+// Zoho lead bilgisine göre konuşmaları filtrele (İSİM BAZLI)
 function filterConversationsByZohoLead(conversations) {
     if (!window.zohoCustomerData) {
         console.log('⚠️ filterConversationsByZohoLead: Zoho customer data yok');
@@ -471,88 +471,78 @@ function filterConversationsByZohoLead(conversations) {
     }
     
     const zohoData = window.zohoCustomerData;
-    console.log('🔍 Filtreleme başlıyor:', {
-        zohoPhone: zohoData.phone,
-        zohoEmail: zohoData.email,
+    console.log('🔍 İsim bazlı filtreleme başlıyor:', {
         zohoName: zohoData.name,
         totalConversations: conversations.length
     });
     
-    // Eğer telefon ve email yoksa, filtreleme yapma
-    if (!zohoData.phone && !zohoData.email) {
-        console.log('⚠️ Zoho data\'da telefon ve email yok, filtreleme yapılamıyor');
+    // Eğer isim yoksa, filtreleme yapma
+    if (!zohoData.name || !zohoData.name.trim()) {
+        console.log('⚠️ Zoho data\'da isim yok, filtreleme yapılamıyor');
         return conversations;
     }
     
+    // Zoho ismini normalize et (küçük harf, boşlukları temizle, Türkçe karakterleri normalize et)
+    const normalizeName = (name) => {
+        return name
+            .toLowerCase()
+            .trim()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '') // Diyakritik işaretleri kaldır
+            .replace(/\s+/g, ' ') // Çoklu boşlukları tek boşluğa çevir
+            .replace(/ı/g, 'i')
+            .replace(/ğ/g, 'g')
+            .replace(/ü/g, 'u')
+            .replace(/ş/g, 's')
+            .replace(/ö/g, 'o')
+            .replace(/ç/g, 'c');
+    };
+    
+    const zohoNameNormalized = normalizeName(zohoData.name);
+    console.log('🔍 Zoho ismi normalize edildi:', {
+        original: zohoData.name,
+        normalized: zohoNameNormalized
+    });
+    
     const filtered = conversations.filter(conv => {
-        let matched = false;
+        if (!conv.contactName || !conv.contactName.trim()) {
+            return false;
+        }
         
-        // Telefon numarası eşleşmesi
-        if (zohoData.phone && conv.phoneNumber) {
-            const zohoPhone = zohoData.phone.replace(/\D/g, '').trim();
-            const convPhone = conv.phoneNumber.replace(/\D/g, '').trim();
-            
-            console.log(`🔍 Telefon karşılaştırması: Zoho="${zohoPhone}" vs Conv="${convPhone}" (${conv.contactName})`);
-            
-            if (zohoPhone && convPhone) {
-                // Son 10 haneyi karşılaştır (ülke kodu olmadan)
-                const zohoLast10 = zohoPhone.slice(-10);
-                const convLast10 = convPhone.slice(-10);
-                
-                // Ayrıca son 9 haneyi de dene (bazı durumlarda 0 ile başlayan numaralar için)
-                const zohoLast9 = zohoPhone.slice(-9);
-                const convLast9 = convPhone.slice(-9);
-                
-                if (zohoLast10 === convLast10 || 
-                    zohoLast9 === convLast9 ||
-                    convPhone.includes(zohoPhone) || 
-                    zohoPhone.includes(convPhone) ||
-                    zohoLast10 === convLast9 ||
-                    zohoLast9 === convLast10) {
-                    console.log('✅ Telefon eşleşti:', {
-                        zohoOriginal: zohoData.phone,
-                        zohoCleaned: zohoPhone,
-                        zohoLast10: zohoLast10,
-                        convOriginal: conv.phoneNumber,
-                        convCleaned: convPhone,
-                        convLast10: convLast10,
-                        contact: conv.contactName
-                    });
-                    matched = true;
-                } else {
-                    console.log('❌ Telefon eşleşmedi:', {
-                        zohoLast10,
-                        convLast10,
-                        contact: conv.contactName
-                    });
-                }
+        const convNameNormalized = normalizeName(conv.contactName);
+        
+        console.log(`🔍 İsim karşılaştırması: Zoho="${zohoNameNormalized}" vs Conv="${convNameNormalized}"`);
+        
+        // Tam eşleşme veya birinin diğerini içermesi
+        if (zohoNameNormalized === convNameNormalized || 
+            zohoNameNormalized.includes(convNameNormalized) || 
+            convNameNormalized.includes(zohoNameNormalized)) {
+            console.log('✅ İsim eşleşti:', {
+                zohoName: zohoData.name,
+                convName: conv.contactName,
+                zohoNormalized: zohoNameNormalized,
+                convNormalized: convNameNormalized
+            });
+            return true;
+        }
+        
+        // Kelime bazlı eşleşme (en az 2 kelime ortaksa)
+        const zohoWords = zohoNameNormalized.split(/\s+/).filter(w => w.length > 2);
+        const convWords = convNameNormalized.split(/\s+/).filter(w => w.length > 2);
+        
+        if (zohoWords.length > 0 && convWords.length > 0) {
+            const commonWords = zohoWords.filter(w => convWords.includes(w));
+            if (commonWords.length >= 2 || (commonWords.length === 1 && zohoWords.length === 1 && convWords.length === 1)) {
+                console.log('✅ İsim kelime bazlı eşleşti:', {
+                    zohoName: zohoData.name,
+                    convName: conv.contactName,
+                    commonWords: commonWords
+                });
+                return true;
             }
         }
         
-        // Email eşleşmesi
-        if (!matched && zohoData.email && conv.email) {
-            const zohoEmail = zohoData.email.toLowerCase().trim();
-            const convEmail = conv.email.toLowerCase().trim();
-            
-            console.log(`🔍 Email karşılaştırması: Zoho="${zohoEmail}" vs Conv="${convEmail}" (${conv.contactName})`);
-            
-            if (zohoEmail && convEmail && zohoEmail === convEmail) {
-                console.log('✅ Email eşleşti:', {
-                    zohoEmail,
-                    convEmail,
-                    contact: conv.contactName
-                });
-                matched = true;
-            } else {
-                console.log('❌ Email eşleşmedi:', {
-                    zohoEmail,
-                    convEmail,
-                    contact: conv.contactName
-                });
-            }
-        }
-        
-        return matched;
+        return false;
     });
     
     console.log(`📊 Filtreleme sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
@@ -598,7 +588,7 @@ function updateChatEmptyView() {
     
     // Zoho lead data varsa ve filtrelenmiş konuşma yoksa, buton göster
     // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
-    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
+    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData && window.zohoCustomerData.name && window.zohoCustomerData.name.trim();
     const conversationsLength = state.conversations ? state.conversations.length : 0;
     const allConversationsLength = state.allConversations ? state.allConversations.length : 0;
     const hasFilteredConversations = state.filterByZohoLead && conversationsLength > 0;
