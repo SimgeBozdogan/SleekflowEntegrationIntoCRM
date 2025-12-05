@@ -430,8 +430,31 @@ async function loadConversations(silent = false) {
         console.log('[loadConversations] zohoCustomerData:', zohoData);
         console.log('[loadConversations] hasZohoData:', hasZohoData, 'showAllConversations:', state.showAllConversations);
         console.log('[loadConversations] window.zohoCustomerData direkt kontrol:', window.zohoCustomerData);
+        console.log('[loadConversations] window.parent.zohoCustomerData:', window.parent && window.parent.zohoCustomerData);
+        console.log('[loadConversations] window.top.zohoCustomerData:', window.top && window.top.zohoCustomerData);
         
-        if (hasZohoData && !state.showAllConversations) {
+        // Eğer window.zohoCustomerData null ise, parent veya top window'u kontrol et (iframe durumu için)
+        if (!zohoData && typeof window !== 'undefined') {
+            if (window.parent && window.parent.zohoCustomerData) {
+                console.log('✅ Parent window\'da Zoho data bulundu, kullanılıyor...');
+                zohoData = window.parent.zohoCustomerData;
+                window.zohoCustomerData = zohoData; // Local window'a da kopyala
+            } else if (window.top && window.top.zohoCustomerData) {
+                console.log('✅ Top window\'da Zoho data bulundu, kullanılıyor...');
+                zohoData = window.top.zohoCustomerData;
+                window.zohoCustomerData = zohoData; // Local window'a da kopyala
+            }
+        }
+        
+        // hasZohoData'yı yeniden hesapla
+        const finalHasZohoData = !!(
+            zohoData &&
+            (zohoData.phone || zohoData.email)
+        );
+        
+        console.log('[loadConversations] Final hasZohoData:', finalHasZohoData);
+        
+        if (finalHasZohoData && !state.showAllConversations) {
             // Yeni lead sayfasına girildiğinde: sadece o lead'in konuşmaları
             state.filterByZohoLead = true;
             state.conversations = filterConversationsByZohoLead(conversations);
@@ -760,8 +783,20 @@ function updateLeadFilterInfo() {
     const infoEl = document.getElementById('leadFilterInfo');
     if (!infoEl) return;
     
-    const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData &&
+    // Hem window, hem parent, hem top window'u kontrol et (iframe durumu için)
+    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData &&
                         (window.zohoCustomerData.phone || window.zohoCustomerData.email);
+    if (!hasZohoData && typeof window !== 'undefined') {
+        if (window.parent && window.parent.zohoCustomerData && 
+            (window.parent.zohoCustomerData.phone || window.parent.zohoCustomerData.email)) {
+            hasZohoData = true;
+            window.zohoCustomerData = window.parent.zohoCustomerData; // Local'e kopyala
+        } else if (window.top && window.top.zohoCustomerData &&
+                   (window.top.zohoCustomerData.phone || window.top.zohoCustomerData.email)) {
+            hasZohoData = true;
+            window.zohoCustomerData = window.top.zohoCustomerData; // Local'e kopyala
+        }
+    }
     
     // Eğer Zoho datası yoksa ya da tüm konuşmalar modundayız => barı gizle
     if (!hasZohoData || state.showAllConversations || !state.filterByZohoLead) {
