@@ -478,7 +478,7 @@ async function loadConversations(silent = false) {
     }
 }
 
-// Zoho lead bilgisine göre konuşmaları filtrele (İSİM BAZLI)
+// Zoho lead bilgisine göre konuşmaları filtrele (İSİM BAZLI - BASİT ARAMA)
 function filterConversationsByZohoLead(conversations) {
     if (!window.zohoCustomerData) {
         console.log('⚠️ filterConversationsByZohoLead: Zoho customer data yok');
@@ -487,44 +487,43 @@ function filterConversationsByZohoLead(conversations) {
 
     const zoho = window.zohoCustomerData;
     const zohoNameRaw = zoho.name || zoho.Full_Name || '';
-    const zohoName = normalizeName(zohoNameRaw);
 
-    console.log('🔍 İSİM BAZLI FİLTRE başlıyor:', {
-        zohoNameRaw,
-        zohoName,
-        totalConversations: conversations.length
-    });
-
-    if (!zohoName) {
+    if (!zohoNameRaw || !zohoNameRaw.trim()) {
         console.log('⚠️ Zoho\'da isim yok, filtreleme yapmıyorum');
         return conversations;
     }
 
-    const filtered = conversations.filter(conv => {
-        const convNameRaw = conv.contactName || conv.name || '';
-        const convName = normalizeName(convNameRaw);
+    // Zoho ismini normalize et (arama için)
+    const zohoNameSearch = normalizeName(zohoNameRaw);
 
+    console.log('🔍 ZOHO LEAD İSMİ İLE ARAMA:', {
+        zohoNameRaw: zohoNameRaw,
+        zohoNameSearch: zohoNameSearch,
+        totalConversations: conversations.length
+    });
+
+    // BASİT ARAMA: SleekFlow konuşmalarında Zoho ismini ara
+    const filtered = conversations.filter(conv => {
+        const convName = conv.contactName || conv.name || '';
+        
         if (!convName) return false;
 
-        // Tam eşleşme
-        if (convName === zohoName) {
-            console.log('✅ İsim tam eşleşti:', { zohoNameRaw, convNameRaw });
-            return true;
-        }
+        // SleekFlow ismini normalize et
+        const convNameSearch = normalizeName(convName);
 
-        // Birbirini içeriyorsa (ör: "Adil Yaman" vs "Adil Y.")
-        if (
-            convName.length > 3 && zohoName.length > 3 &&
-            (convName.includes(zohoName) || zohoName.includes(convName))
-        ) {
-            console.log('✅ İsim benzer / içeriyor:', { zohoNameRaw, convNameRaw });
+        // ARAMA: Zoho ismi SleekFlow isminde geçiyor mu? (basit contains)
+        if (convNameSearch.includes(zohoNameSearch) || zohoNameSearch.includes(convNameSearch)) {
+            console.log('✅ İSİM EŞLEŞTİ:', {
+                zoho: zohoNameRaw,
+                sleekflow: convName
+            });
             return true;
         }
 
         return false;
     });
 
-    console.log(`📊 İSİM FİLTRE sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
+    console.log(`📊 ARAMA SONUCU: ${filtered.length}/${conversations.length} konuşma bulundu`);
     return filtered;
 }
 
