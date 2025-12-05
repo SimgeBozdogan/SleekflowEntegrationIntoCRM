@@ -445,6 +445,11 @@ async function loadConversations(silent = false) {
         let filtered = conversations;
 
         // 🔹 3) Zoho'dan lead ismi geldiyse → SADECE İSİMLE FİLTRE
+        console.log('🔍 window.zohoCustomerData kontrolü:', {
+            exists: typeof window !== 'undefined' && !!window.zohoCustomerData,
+            value: typeof window !== 'undefined' ? window.zohoCustomerData : 'window undefined'
+        });
+        
         if (typeof window !== 'undefined' && window.zohoCustomerData) {
             const zoho = window.zohoCustomerData;
             const zohoNameRaw = zoho.name || zoho.Full_Name || '';
@@ -453,6 +458,7 @@ async function loadConversations(silent = false) {
             console.log('🔍 Zoho lead ismi ile filtreleme denemesi:', {
                 zohoNameRaw,
                 zohoName,
+                zohoObject: zoho,
                 totalConversations: conversations.length
             });
 
