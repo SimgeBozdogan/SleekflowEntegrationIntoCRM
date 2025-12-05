@@ -1595,23 +1595,24 @@ window.addEventListener('message', handleZohoCallback);
         // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
         if (state.allConversations && state.allConversations.length > 0) {
             console.log('🔄 Mevcut konuşmalar filtreleniyor...');
-            state.showAllConversations = false;
+            state.showAllConversations = false; // Buton görünsün
             state.filterByZohoLead = true;
             state.conversations = filterConversationsByZohoLead(state.allConversations);
-            renderConversations();
-            updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
+            renderConversations(); // Bu fonksiyon içinde Zoho lead konuşmaları gösterilecek
+            updateLeadFilterInfo();
             
-            // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
             setTimeout(() => {
                 updateChatEmptyView();
             }, 200);
             
             console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
         } else {
-            // Konuşmalar henüz yüklenmediyse, YENİDEN YÜKLE
-            console.log('⏳ Konuşmalar henüz yüklenmedi, yeniden yükleniyor...');
+            // Konuşmalar henüz yüklenmediyse, YÜKLE (Zoho filtreleme ile)
+            console.log('⏳ Konuşmalar henüz yüklenmedi, Zoho lead için yükleniyor...');
+            state.showAllConversations = false; // Buton görünsün
+            state.filterByZohoLead = true;
             state.pendingZohoFilter = true;
-            // Konuşmaları yeniden yükle (filtreleme otomatik yapılacak)
+            // Konuşmaları yükle (loadConversations içinde Zoho filtreleme yapılacak)
             if (typeof loadConversations === 'function') {
                 loadConversations();
             }
