@@ -425,9 +425,8 @@ async function loadConversations(silent = false) {
         
         // Zoho data varsa, filtreleme öncesi durumu logla
         if (window.zohoCustomerData) {
-            console.log('🔍 Zoho data mevcut, filtreleme yapılacak:', {
-                zohoPhone: window.zohoCustomerData.phone,
-                zohoEmail: window.zohoCustomerData.email,
+            console.log('🔍 Zoho data mevcut, isim bazlı filtreleme yapılacak:', {
+                zohoName: window.zohoCustomerData.name,
                 filterByZohoLead: state.filterByZohoLead,
                 totalConversations: conversations.length
             });
