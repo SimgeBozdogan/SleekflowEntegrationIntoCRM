@@ -267,6 +267,77 @@
                 // Zoho Embedded App'i başlat
                 ZOHO.embeddedApp.init();
                 console.log("✅ Zoho Embedded App başlatıldı");
+                
+                // PageLoad event'i tetiklenmeyebilir, manuel olarak mevcut sayfa bilgilerini al
+                // Bu, widget iframe içinde açıldığında PageLoad event'i kaçırırsa yedek olarak çalışır
+                setTimeout(async () => {
+                    try {
+                        console.log("🔄 Manuel olarak mevcut sayfa bilgileri alınıyor...");
+                        const currentPage = await ZOHO.CRM.UI.getPageInfo();
+                        console.log("📋 Mevcut sayfa bilgileri:", currentPage);
+                        
+                        if (currentPage && currentPage.Entity && currentPage.EntityId) {
+                            console.log("✅ Manuel olarak Entity ve EntityId bulundu:", currentPage.Entity, currentPage.EntityId);
+                            // PageLoad event'ini manuel olarak tetikle
+                            const pageLoadData = {
+                                Entity: currentPage.Entity,
+                                EntityId: currentPage.EntityId
+                            };
+                            console.log("🔄 PageLoad event'i manuel olarak tetikleniyor...");
+                            // PageLoad handler'ını manuel olarak çağır
+                            const event = { Entity: currentPage.Entity, EntityId: currentPage.EntityId };
+                            // Handler'ı direkt çağıramayız, bu yüzden aynı mantığı tekrar çalıştır
+                            try {
+                                console.log("📞 Manuel Zoho CRM API çağrısı yapılıyor...");
+                                const res = await ZOHO.CRM.API.getRecord({
+                                    Entity: currentPage.Entity,
+                                    RecordID: currentPage.EntityId
+                                });
+                                
+                                console.log("✅ Manuel Zoho CRM Data alındı:", res);
+                                
+                                if (res && res.data && res.data.length > 0) {
+                                    const r = res.data[0];
+                                    zohoCustomerData = {
+                                        name: (r.First_Name || "") + " " + (r.Last_Name || "") || r.Full_Name || "",
+                                        phone: r.Phone || r.Mobile || "",
+                                        email: r.Email || "",
+                                        id: r.Id,
+                                        entity: currentPage.Entity
+                                    };
+                                    
+                                    window.zohoCustomerData = zohoCustomerData;
+                                    console.log("✅ Manuel olarak Zoho Müşteri Bilgisi window'a eklendi:", zohoCustomerData);
+                                    
+                                    // Event dispatch et
+                                    function dispatchZohoEvent() {
+                                        if (typeof window !== 'undefined' && window.zohoCustomerData) {
+                                            console.log('📤 Manuel Zoho lead data event dispatch ediliyor...');
+                                            const event = new CustomEvent('zohoLeadDataLoaded', { 
+                                                detail: window.zohoCustomerData 
+                                            });
+                                            window.dispatchEvent(event);
+                                            document.dispatchEvent(event);
+                                            console.log('✅ Manuel Zoho lead data event dispatch edildi');
+                                        }
+                                    }
+                                    
+                                    dispatchZohoEvent();
+                                    setTimeout(dispatchZohoEvent, 500);
+                                    setTimeout(dispatchZohoEvent, 1000);
+                                    setTimeout(dispatchZohoEvent, 2000);
+                                    setTimeout(dispatchZohoEvent, 3000);
+                                }
+                            } catch (error) {
+                                console.error("❌ Manuel Zoho CRM API Error:", error);
+                            }
+                        } else {
+                            console.log("⚠️ Manuel sayfa bilgisi alınamadı veya Entity/EntityId yok");
+                        }
+                    } catch (error) {
+                        console.error("❌ Manuel sayfa bilgisi alma hatası:", error);
+                    }
+                }, 2000); // 2 saniye bekle, init tamamlansın
             } catch (error) {
                 console.error("❌ Zoho başlatma hatası:", error);
             }
@@ -428,7 +499,7 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=37"></script>
+    <script src="app.js?v=38"></script>
     <script>
         // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
         window.openSidebarNow = function() {
