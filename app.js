@@ -637,7 +637,6 @@ function renderConversations() {
         list.innerHTML = `
             <div class="empty-state">
                 <p>📭 Sleekflow konuşmalarını görmek için aşağıdaki butona tıklayın.</p>
-                <p class="empty-hint">Önce tüm konuşmaları açacağız, sonra istersen filtre ekleriz.</p>
                 <button class="btn btn-primary" id="initShowAllConversations" style="margin-top: 15px; padding: 10px 20px;">
                     Tüm konuşmaları göster
                 </button>
