@@ -415,19 +415,6 @@ async function loadConversations(silent = false) {
         return;
     }
 
-    // Yeni lead sayfasına girildiğinde showAllConversations'ı sıfırla (eğer Zoho data varsa)
-    // Bu sayede her yeni lead'e girildiğinde o lead'e göre filtreleme yapılır
-    // NOT: silent mode'da bile kontrol yap (polling sırasında da filtreleme yapılmalı)
-    if (typeof window !== 'undefined' && window.zohoCustomerData) {
-        // Zoho data varsa, showAllConversations'ı HER ZAMAN false yap (yeni lead'e göre filtreleme yapılacak)
-        // Sadece kullanıcı "Tüm konuşmaları göster" butonuna basarsa true olur
-        // Ama burada sıfırlamıyoruz çünkü kullanıcı butona basmış olabilir
-        // Sadece yeni lead'e girildiğinde handleZohoLeadDataLoaded içinde sıfırlanıyor
-        console.log('🔍 loadConversations - Zoho data var:', window.zohoCustomerData);
-    } else {
-        console.log('⚠️ loadConversations - window.zohoCustomerData YOK!');
-    }
-
     if (!silent) {
         console.log('📥 Konuşmalar yükleniyor...');
         showLoading();
@@ -439,83 +426,40 @@ async function loadConversations(silent = false) {
             : '/sleekflow/conversations';
 
         const result = await apiRequest(url, 'GET');
-        const conversations = (result && result.conversations) ? result.conversations : [];
+        const all = (result && result.conversations) ? result.conversations : [];
 
-        console.log('📊 SleekFlow API dönüşü (ilk 10):',
-            conversations.slice(0, 10).map(c => ({
-                id: c.id,
-                name: c.contactName,
-                phone: c.phoneNumber,
-                email: c.email,
-                channel: c.channel || c.rawChannel
-            }))
-        );
+        // Tüm konuşmaları kaydet
+        state.allConversations = all;
 
-        // 🔹 1) Tüm konuşmaları kaydet (istersek sonra "hepsini göster" için)
-        state.allConversations = conversations;
-
-        // 🔹 2) Varsayılan: hiç filtre yoksa tüm konuşmalar
-        let filtered = conversations;
-
-        // 🔹 3) ÖNCE Zoho lead kontrolü yap
-        // Eğer Zoho data varsa VE kullanıcı "Tüm konuşmaları göster" butonuna basmadıysa → FİLTRELE
-        // Eğer "Tüm konuşmaları göster" aktifse, filtreleme yapma
-        if (state.showAllConversations) {
-            console.log('✅ showAllConversations = true, filtreleme yapılmıyor, tüm konuşmalar gösteriliyor');
-            filtered = conversations;
-        }
-        // 🔹 4) Zoho'dan lead ismi geldiyse → SADECE İSİMLE FİLTRE (showAllConversations false ise)
-        else if (typeof window !== 'undefined' && window.zohoCustomerData) {
-            console.log('🔍 window.zohoCustomerData kontrolü:', {
-                exists: typeof window !== 'undefined' && !!window.zohoCustomerData,
-                value: typeof window !== 'undefined' ? window.zohoCustomerData : 'window undefined'
-            });
+        // Eğer kullanıcı "tüm konuşmaları göster" dememişse → filtrele
+        if (!state.showAllConversations && typeof window !== 'undefined' && window.zohoCustomerData) {
             const zoho = window.zohoCustomerData;
             const zohoNameRaw = zoho.name || zoho.Full_Name || '';
             const zohoName = normalizeName(zohoNameRaw);
 
-            console.log('🔍 Zoho lead ismi ile filtreleme denemesi:', {
-                zohoNameRaw,
-                zohoName,
-                zohoObject: zoho,
-                totalConversations: conversations.length
-            });
-
             if (zohoName) {
-                filtered = conversations.filter(conv => {
+                state.conversations = all.filter(conv => {
                     const convNameRaw = conv.contactName || conv.name || '';
                     const convName = normalizeName(convNameRaw);
-
                     if (!convName) return false;
 
-                    // Tam eşleşme
-                    if (convName === zohoName) {
-                        console.log('✅ İsim tam eşleşti:', { zohoNameRaw, convNameRaw });
+                    // Tam eşleşme veya içerme
+                    if (convName === zohoName) return true;
+                    if (convName.length > 3 && zohoName.length > 3 &&
+                        (convName.includes(zohoName) || zohoName.includes(convName))) {
                         return true;
                     }
-
-                    // Birbirini içeriyorsa (Adil Yaman / Adil Y.)
-                    if (
-                        convName.length > 3 && zohoName.length > 3 &&
-                        (convName.includes(zohoName) || zohoName.includes(convName))
-                    ) {
-                        console.log('✅ İsim benzer / içeriyor:', { zohoNameRaw, convNameRaw });
-                        return true;
-                    }
-
                     return false;
                 });
-
-                console.log(`📊 İSİM FİLTRE sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
+                console.log(`📊 Filtreleme: ${state.conversations.length}/${all.length} konuşma eşleşti`);
             } else {
-                console.log('⚠️ Zoho lead ismi boş, filtre uygulanmadı');
+                state.conversations = all;
             }
         } else {
-            console.log('ℹ️ window.zohoCustomerData yok, filtre uygulanmıyor (tüm konuşmalar gösterilecek)');
+            // Tüm konuşmaları göster
+            state.conversations = all;
         }
 
-        // 🔹 4) Sonucu state'e yaz ve render et
-        state.conversations = filtered;
         renderConversations();
         updateChatEmptyView();
         updateLeadFilterInfo();
@@ -531,7 +475,9 @@ async function loadConversations(silent = false) {
             }
         }
     } finally {
-        hideLoading();
+        if (!silent) {
+            hideLoading();
+        }
     }
 }
 
@@ -1647,8 +1593,7 @@ window.addEventListener('message', handleZohoCallback);
 // ÖNEMLİ: Bu listener'ı sayfa yüklenmeden önce ekle
 (function() {
     function handleZohoLeadDataLoaded(event) {
-        console.log('📋 Zoho lead bilgisi yüklendi, konuşmalar filtreleniyor...', event.detail);
-        console.log('📋 window.zohoCustomerData:', window.zohoCustomerData);
+        console.log('📋 Zoho lead bilgisi yüklendi:', event.detail);
         
         // State kontrolü
         if (!state) {
@@ -1657,42 +1602,15 @@ window.addEventListener('message', handleZohoCallback);
             return;
         }
         
-        // YENİ LEAD'E GİRİLDİĞİNDE: showAllConversations flag'ini sıfırla
-        // Çünkü yeni bir lead'e girildiğinde o lead'e göre filtreleme yapılmalı
-        console.log('🔄 Yeni Zoho lead\'e girildi, showAllConversations sıfırlanıyor...');
+        // window.zohoCustomerData'yı set et
+        window.zohoCustomerData = event.detail;
+        
+        // Her lead değişiminde filtre aktif olsun
         state.showAllConversations = false;
-        state.filterByZohoLead = true;
         
-        // window.zohoCustomerData'yı kontrol et
-        if (!window.zohoCustomerData && event.detail) {
-            window.zohoCustomerData = event.detail;
-            console.log('✅ window.zohoCustomerData event.detail\'den set edildi');
-        }
-        
-        // Eğer konuşmalar zaten yüklendiyse, yeniden filtrele
-        if (state.allConversations && state.allConversations.length > 0) {
-            console.log('🔄 Mevcut konuşmalar filtreleniyor...');
-            state.showAllConversations = false; // Buton görünsün
-            state.filterByZohoLead = true;
-            state.conversations = filterConversationsByZohoLead(state.allConversations);
-            renderConversations(); // Bu fonksiyon içinde Zoho lead konuşmaları gösterilecek
-            updateLeadFilterInfo();
-            
-            setTimeout(() => {
-                updateChatEmptyView();
-            }, 200);
-            
-            console.log(`✅ Konuşmalar Zoho lead'e göre filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
-        } else {
-            // Konuşmalar henüz yüklenmediyse, YÜKLE (Zoho filtreleme ile)
-            console.log('⏳ Konuşmalar henüz yüklenmedi, Zoho lead için yükleniyor...');
-            state.showAllConversations = false; // Buton görünsün
-            state.filterByZohoLead = true;
-            state.pendingZohoFilter = true;
-            // Konuşmaları yükle (loadConversations içinde Zoho filtreleme yapılacak)
-            if (typeof loadConversations === 'function') {
-                loadConversations();
-            }
+        // Konuşmaları yükle (loadConversations içinde filtreleme yapılacak)
+        if (typeof loadConversations === 'function') {
+            loadConversations();
         }
     }
     
