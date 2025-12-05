@@ -220,26 +220,30 @@
                                 updateCustomerInfoInUI();
                                 
                                 // Lead bilgisi yüklendiğini bildir (app.js'de filtreleme yapılacak)
-                                if (typeof window !== 'undefined') {
-                                    console.log('📤 Zoho lead data event dispatch ediliyor...');
-                                    const event = new CustomEvent('zohoLeadDataLoaded', { 
-                                        detail: zohoCustomerData 
-                                    });
-                                    window.dispatchEvent(event);
-                                    // Ayrıca document'e de dispatch et (bazı durumlarda gerekli)
-                                    document.dispatchEvent(event);
-                                    console.log('✅ Zoho lead data event dispatch edildi');
-                                    
-                                    // Eğer app.js henüz yüklenmemişse, bir süre sonra tekrar dene
-                                    setTimeout(() => {
-                                        if (typeof window !== 'undefined' && window.zohoCustomerData) {
-                                            console.log('🔄 Zoho lead data event tekrar dispatch ediliyor (retry)...');
-                                            window.dispatchEvent(new CustomEvent('zohoLeadDataLoaded', { 
-                                                detail: window.zohoCustomerData 
-                                            }));
-                                        }
-                                    }, 1000);
+                                // ÖNEMLİ: app.js yüklenene kadar event'i tekrar tekrar gönder
+                                function dispatchZohoEvent() {
+                                    if (typeof window !== 'undefined' && window.zohoCustomerData) {
+                                        console.log('📤 Zoho lead data event dispatch ediliyor...');
+                                        const event = new CustomEvent('zohoLeadDataLoaded', { 
+                                            detail: window.zohoCustomerData 
+                                        });
+                                        window.dispatchEvent(event);
+                                        // Ayrıca document'e de dispatch et (bazı durumlarda gerekli)
+                                        document.dispatchEvent(event);
+                                        console.log('✅ Zoho lead data event dispatch edildi');
+                                    }
                                 }
+                                
+                                // Hemen dispatch et
+                                dispatchZohoEvent();
+                                
+                                // app.js yüklenene kadar tekrar tekrar dene (test modundaki gibi)
+                                setTimeout(dispatchZohoEvent, 500);
+                                setTimeout(dispatchZohoEvent, 1000);
+                                setTimeout(dispatchZohoEvent, 2000);
+                                setTimeout(dispatchZohoEvent, 3000);
+                                setTimeout(dispatchZohoEvent, 4000);
+                                setTimeout(dispatchZohoEvent, 5000);
                                 
                                 // Conversation'lar yüklendikten sonra eşleştirme yap
                                 // Önce mevcut conversation'ları kontrol et
@@ -424,7 +428,7 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=35"></script>
+    <script src="app.js?v=36"></script>
     <script>
         // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
         window.openSidebarNow = function() {

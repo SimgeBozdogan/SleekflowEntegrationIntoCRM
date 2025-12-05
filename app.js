@@ -1515,19 +1515,40 @@ window.addEventListener('message', handleZohoCallback);
         window.addEventListener('zohoLeadDataLoaded', handleZohoLeadDataLoaded);
         // Ayrıca document'e de ekle (bazı durumlarda gerekli)
         document.addEventListener('zohoLeadDataLoaded', handleZohoLeadDataLoaded);
-        console.log('✅ Zoho lead data event listener eklendi');
+        console.log('✅ Zoho lead data event listener eklendi (window ve document)');
         
-        // Eğer Zoho data zaten varsa (sayfa yeniden yüklendiğinde), hemen filtrele
-        setTimeout(() => {
-            if (window.zohoCustomerData && state && state.allConversations && state.allConversations.length > 0) {
-                console.log('🔄 Sayfa yüklendi, mevcut Zoho data ile filtreleme yapılıyor...');
-                state.showAllConversations = false;
-                state.filterByZohoLead = true;
-                state.conversations = filterConversationsByZohoLead(state.allConversations);
-                renderConversations();
-                updateChatEmptyView();
+        // Eğer Zoho data zaten varsa (sayfa yeniden yüklendiğinde veya widget açıldığında), hemen filtrele
+        // Bu önemli çünkü event dispatch edildiğinde app.js henüz yüklenmemiş olabilir
+        function checkAndFilterExistingZohoData() {
+            if (window.zohoCustomerData && state) {
+                console.log('🔍 Mevcut Zoho data kontrol ediliyor:', window.zohoCustomerData);
+                
+                // Eğer konuşmalar yüklenmişse, hemen filtrele
+                if (state.allConversations && state.allConversations.length > 0) {
+                    console.log('🔄 Sayfa yüklendi, mevcut Zoho data ile filtreleme yapılıyor...');
+                    state.showAllConversations = false;
+                    state.filterByZohoLead = true;
+                    state.conversations = filterConversationsByZohoLead(state.allConversations);
+                    renderConversations();
+                    updateChatEmptyView();
+                    updateLeadFilterInfo();
+                    console.log(`✅ Mevcut Zoho data ile filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
+                } else {
+                    // Konuşmalar henüz yüklenmemişse, yüklendikten sonra filtrele
+                    console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendikten sonra filtrelenecek...');
+                    state.pendingZohoFilter = true;
+                }
             }
-        }, 1000);
+        }
+        
+        // Hemen kontrol et
+        checkAndFilterExistingZohoData();
+        
+        // Birkaç kez daha kontrol et (konuşmalar yüklenene kadar)
+        setTimeout(checkAndFilterExistingZohoData, 1000);
+        setTimeout(checkAndFilterExistingZohoData, 2000);
+        setTimeout(checkAndFilterExistingZohoData, 3000);
+        setTimeout(checkAndFilterExistingZohoData, 5000);
     }
 })();
 
