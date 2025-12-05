@@ -580,7 +580,17 @@ function updateChatEmptyView() {
     }
     
     // Zoho lead data varsa ve filtrelenmiş konuşma yoksa, buton göster
-    const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
+    // Hem window, hem parent, hem top window'u kontrol et (iframe durumu için)
+    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData;
+    if (!hasZohoData && typeof window !== 'undefined') {
+        if (window.parent && window.parent.zohoCustomerData) {
+            hasZohoData = true;
+            window.zohoCustomerData = window.parent.zohoCustomerData; // Local'e kopyala
+        } else if (window.top && window.top.zohoCustomerData) {
+            hasZohoData = true;
+            window.zohoCustomerData = window.top.zohoCustomerData; // Local'e kopyala
+        }
+    }
     const conversationsLength = state.conversations ? state.conversations.length : 0;
     const allConversationsLength = state.allConversations ? state.allConversations.length : 0;
     const hasFilteredConversations = state.filterByZohoLead && conversationsLength > 0;
