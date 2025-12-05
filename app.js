@@ -444,13 +444,17 @@ async function loadConversations(silent = false) {
         // 🔹 2) Varsayılan: hiç filtre yoksa tüm konuşmalar
         let filtered = conversations;
 
-        // 🔹 3) Zoho'dan lead ismi geldiyse → SADECE İSİMLE FİLTRE
-        console.log('🔍 window.zohoCustomerData kontrolü:', {
-            exists: typeof window !== 'undefined' && !!window.zohoCustomerData,
-            value: typeof window !== 'undefined' ? window.zohoCustomerData : 'window undefined'
-        });
-        
-        if (typeof window !== 'undefined' && window.zohoCustomerData) {
+        // 🔹 3) Eğer "Tüm konuşmaları göster" aktifse, filtreleme yapma
+        if (state.showAllConversations) {
+            console.log('✅ showAllConversations = true, filtreleme yapılmıyor, tüm konuşmalar gösteriliyor');
+            filtered = conversations;
+        }
+        // 🔹 4) Zoho'dan lead ismi geldiyse → SADECE İSİMLE FİLTRE (showAllConversations false ise)
+        else if (typeof window !== 'undefined' && window.zohoCustomerData) {
+            console.log('🔍 window.zohoCustomerData kontrolü:', {
+                exists: typeof window !== 'undefined' && !!window.zohoCustomerData,
+                value: typeof window !== 'undefined' ? window.zohoCustomerData : 'window undefined'
+            });
             const zoho = window.zohoCustomerData;
             const zohoNameRaw = zoho.name || zoho.Full_Name || '';
             const zohoName = normalizeName(zohoNameRaw);
@@ -700,13 +704,163 @@ function renderConversations() {
     list.innerHTML = '';
 
     const conversations = state.conversations || [];
+    
+    // Zoho data var mı kontrol et
+    const zohoData = (typeof window !== 'undefined' && window.zohoCustomerData) 
+        ? window.zohoCustomerData 
+        : null;
+    const hasZohoData = !!(
+        zohoData && (
+            zohoData.name ||
+            zohoData.Full_Name ||
+            zohoData.phone ||
+            zohoData.email
+        )
+    );
 
     console.log('🧾 renderConversations - gelen konuşma sayısı:', conversations.length, {
         showAllConversations: state.showAllConversations,
         filterByZohoLead: state.filterByZohoLead,
-        hasZohoData: typeof window !== 'undefined' && !!window.zohoCustomerData
+        hasZohoData: hasZohoData,
+        allConversationsCount: state.allConversations?.length || 0
     });
 
+    // Eğer "Tüm konuşmaları göster" aktifse, sadece konuşmaları göster (buton yok)
+    if (state.showAllConversations) {
+        if (conversations.length === 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>📭 Henüz konuşma yok</p>
+                    <p class="empty-hint">Sleekflow'dan konuşmalar yükleniyor...</p>
+                </div>
+            `;
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            return;
+        }
+
+        conversations.forEach(conv => {
+            const item = document.createElement('div');
+            item.className = 'conversation-item';
+            if (state.currentConversation && state.currentConversation.id === conv.id) {
+                item.classList.add('active');
+            }
+
+            const channel = conv.channel || conv.rawChannel || '';
+            const channelIcon = getChannelIcon(channel);
+
+            item.innerHTML = `
+                <div class="conversation-avatar">
+                    ${getInitials(conv.contactName || 'U')}
+                    ${channelIcon ? `<span class="channel-icon">${channelIcon}</span>` : ''}
+                </div>
+                <div class="conversation-info">
+                    <div class="conversation-name">${conv.contactName || 'Bilinmeyen'}</div>
+                    <div class="conversation-preview">${conv.lastMessage || ''}</div>
+                </div>
+                <div class="conversation-time">${formatTime(conv.lastMessageTime)}</div>
+            `;
+
+            item.addEventListener('click', () => selectConversation(conv));
+            list.appendChild(item);
+        });
+
+        updateChatEmptyView();
+        updateLeadFilterInfo();
+        return;
+    }
+
+    // Zoho lead filtresi aktifse
+    if (hasZohoData) {
+        // Eşleşen konuşmalar varsa → konuşmaları göster + altına buton ekle
+        if (conversations.length > 0) {
+            conversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                if (state.currentConversation && state.currentConversation.id === conv.id) {
+                    item.classList.add('active');
+                }
+
+                const channel = conv.channel || conv.rawChannel || '';
+                const channelIcon = getChannelIcon(channel);
+
+                item.innerHTML = `
+                    <div class="conversation-avatar">
+                        ${getInitials(conv.contactName || 'U')}
+                        ${channelIcon ? `<span class="channel-icon">${channelIcon}</span>` : ''}
+                    </div>
+                    <div class="conversation-info">
+                        <div class="conversation-name">${conv.contactName || 'Bilinmeyen'}</div>
+                        <div class="conversation-preview">${conv.lastMessage || ''}</div>
+                    </div>
+                    <div class="conversation-time">${formatTime(conv.lastMessageTime)}</div>
+                `;
+
+                item.addEventListener('click', () => selectConversation(conv));
+                list.appendChild(item);
+            });
+
+            // Buton ekle (konuşmaların altına)
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'empty-state';
+            buttonContainer.style.marginTop = '20px';
+            buttonContainer.style.padding = '15px';
+            buttonContainer.style.textAlign = 'center';
+            buttonContainer.innerHTML = `
+                <button class="btn btn-primary" id="showAllConversationsBtn" style="padding: 10px 20px;">
+                    Tüm konuşmaları göster
+                </button>
+            `;
+            list.appendChild(buttonContainer);
+
+            setTimeout(() => {
+                const btn = document.getElementById('showAllConversationsBtn');
+                if (!btn) return;
+
+                btn.onclick = async function () {
+                    console.log('🔘 "Tüm konuşmaları göster" butonuna tıklandı');
+                    state.showAllConversations = true;
+                    await loadConversations(false);
+                    renderConversations();
+                    updateChatEmptyView();
+                };
+            }, 50);
+
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            return;
+        }
+        // Eşleşen konuşma yoksa → mesaj + buton
+        else if (state.allConversations && state.allConversations.length > 0) {
+            list.innerHTML = `
+                <div class="empty-state">
+                    <p>📭 Bu lead ile henüz bir konuşma yapılmamış</p>
+                    <button class="btn btn-primary" id="showAllConversationsBtn" style="margin-top: 15px; padding: 10px 20px;">
+                        Tüm konuşmaları göster
+                    </button>
+                </div>
+            `;
+
+            setTimeout(() => {
+                const btn = document.getElementById('showAllConversationsBtn');
+                if (!btn) return;
+
+                btn.onclick = async function () {
+                    console.log('🔘 "Tüm konuşmaları göster" butonuna tıklandı');
+                    state.showAllConversations = true;
+                    await loadConversations(false);
+                    renderConversations();
+                    updateChatEmptyView();
+                };
+            }, 50);
+
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            return;
+        }
+    }
+
+    // Zoho data yoksa veya henüz yüklenmediyse
     if (conversations.length === 0) {
         list.innerHTML = `
             <div class="empty-state">
@@ -719,6 +873,7 @@ function renderConversations() {
         return;
     }
 
+    // Fallback: Normal render (Zoho yoksa)
     conversations.forEach(conv => {
         const item = document.createElement('div');
         item.className = 'conversation-item';
