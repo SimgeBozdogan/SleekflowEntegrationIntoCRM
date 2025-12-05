@@ -153,213 +153,73 @@
     <script src="https://crm.zoho.com/crm/javascript/ZohoEmbeddedAppSDK.js"></script>
     
     <script>
-        // 🔥 ZOHO SAYFADAKİ LEAD'İN İSMİNİ ALMAK İÇİN %100 ÇALIŞAN YÖNTEM
-        function loadZohoLeadData() {
-            console.log("🔵 Zoho lead data yükleniyor...");
-            
-            // YÖNTEM 1: getRecordId() ile direkt recordId al (EN GÜVENİLİR)
-            function fetchLeadWithRecordId() {
-                try {
-                    // Zoho'dan sayfadaki aktif record ID'sini al
-                    var recordId = ZOHO.CRM.API.getRecordId();
-                    console.log("📋 getRecordId() ile alınan recordId:", recordId);
-                    
-                    if (!recordId) {
-                        console.warn("⚠️ getRecordId() boş geldi, alternatif yöntem deneniyor...");
-                        return false;
-                    }
-                    
-                    // Lead kaydını Zoho API'den çek
-                    ZOHO.CRM.API.getRecord({
-                        Entity: "Leads",
-                        RecordID: recordId
-                    }).then(function(resp) {
-                        try {
-                            console.log("📋 Zoho getRecord response:", resp);
-                            if (!resp || !resp.data || !resp.data[0]) {
-                                console.warn("⚠️ Zoho getRecord boş geldi");
-                                return;
-                            }
+        // ---------------------------------------------------------
+        // 🔥 ZOHO'DAN AKTİF LEAD'İ ALIP app.js'YE GÖNDEREN TEK DOĞRU KOD
+        // ---------------------------------------------------------
 
-                            var rec = resp.data[0];
+        ZOHO.embeddedApp.on("PageLoad", async function(data) {
+            console.log("🚀 ZOHO PageLoad:", data);
 
-                            // Debug: Tüm alanları logla
-                            console.log("📋 Zoho record tüm alanlar:", Object.keys(rec));
-                            console.log("📋 Zoho record örnek değerler:", {
-                                id: rec.id,
-                                Full_Name: rec.Full_Name,
-                                Phone: rec.Phone,
-                                Mobile: rec.Mobile,
-                                Email: rec.Email,
-                                First_Name: rec.First_Name,
-                                Last_Name: rec.Last_Name,
-                                Company: rec.Company
-                            });
-                            
-                            // Zoho CRM API'den gelen veriyi normalize et
-                            // Full_Name öncelikli (Zoho'da sayfada görünen isim bu)
-                            var zohoCustomerData = {
-                                id: rec.id,
-                                name: rec.Full_Name || rec.Full_Name__s || (rec.First_Name && rec.Last_Name ? (rec.First_Name + " " + rec.Last_Name) : "") || rec.Company || "",
-                                phone: rec.Phone || rec.Mobile || rec.Mobile_Phone || "",
-                                email: rec.Email || ""
-                            };
-                            
-                            console.log("🔍 Oluşturulan zohoCustomerData:", zohoCustomerData);
+            let module = data.Entity || "Leads";
+            let recordId = data.EntityId ? data.EntityId[0] : null;
 
-                            if (!zohoCustomerData.name || zohoCustomerData.name.trim() === "") {
-                                console.warn("⚠️ Zoho lead ismi boş!");
-                                return;
-                            }
-
-                            // 1) Global değişken olarak widget içinde sakla
-                            window.zohoCustomerData = zohoCustomerData;
-                            console.log("✅ window.zohoCustomerData set edildi:", zohoCustomerData);
-                            console.log("✅ Lead ismi:", zohoCustomerData.name);
-
-                            // 2) app.js içindeki listener'ların yakalaması için event fırlat
-                            var event = new CustomEvent("zohoLeadDataLoaded", { detail: zohoCustomerData });
-                            window.dispatchEvent(event);
-                            document.dispatchEvent(event);
-                            console.log("✅ 'zohoLeadDataLoaded' event dispatch edildi");
-                        } catch (e) {
-                            console.error("❌ Zoho lead işleme hatası:", e);
-                        }
-                    }).catch(function(error) {
-                        console.error("❌ Zoho getRecord API hatası:", error);
-                    });
-                    
-                    return true;
-                } catch (e) {
-                    console.error("❌ getRecordId() hatası:", e);
-                    return false;
+            // 1) getRecordId() daha güvenilir
+            try {
+                const rid = await ZOHO.CRM.API.getRecordId();
+                if (rid) {
+                    console.log("📌 getRecordId() ile lead bulundu:", rid);
+                    recordId = rid;
+                    module = "Leads";
                 }
-            }
-            
-            // YÖNTEM 2: PageLoad event'inden (fallback)
-            ZOHO.embeddedApp.on("PageLoad", function(data) {
-                console.log("🔵 Zoho PageLoad data:", data);
-
-                // Önce getRecordId() ile dene
-                if (!fetchLeadWithRecordId()) {
-                    // Eğer getRecordId() çalışmadıysa, PageLoad'dan al
-                    var recordId = data.EntityId && data.EntityId[0];
-                    var module = data.Entity || "Leads";
-
-                    if (!recordId) {
-                        console.warn("⚠️ RecordID yok, getPageInfo deneniyor...");
-                        tryGetPageInfo();
-                        return;
-                    }
-
-                    // Lead kaydını Zoho API'den çek
-                    ZOHO.CRM.API.getRecord({
-                        Entity: module,
-                        RecordID: recordId
-                    }).then(function(resp) {
-                        try {
-                            console.log("📋 Zoho getRecord response (PageLoad):", resp);
-                            if (!resp || !resp.data || !resp.data[0]) {
-                                console.warn("⚠️ Zoho getRecord boş geldi");
-                                tryGetPageInfo();
-                                return;
-                            }
-
-                            var rec = resp.data[0];
-                            var zohoCustomerData = {
-                                id: rec.id,
-                                name: rec.Full_Name || rec.Full_Name__s || (rec.First_Name && rec.Last_Name ? (rec.First_Name + " " + rec.Last_Name) : "") || rec.Company || "",
-                                phone: rec.Phone || rec.Mobile || rec.Mobile_Phone || "",
-                                email: rec.Email || ""
-                            };
-                            
-                            console.log("🔍 Oluşturulan zohoCustomerData (PageLoad):", zohoCustomerData);
-
-                            if (zohoCustomerData.name && zohoCustomerData.name.trim() !== "") {
-                                window.zohoCustomerData = zohoCustomerData;
-                                var event = new CustomEvent("zohoLeadDataLoaded", { detail: zohoCustomerData });
-                                window.dispatchEvent(event);
-                                document.dispatchEvent(event);
-                                console.log("✅ PageLoad ile event dispatch edildi");
-                            }
-                        } catch (e) {
-                            console.error("❌ Zoho lead işleme hatası:", e);
-                            tryGetPageInfo();
-                        }
-                    }).catch(function(error) {
-                        console.error("❌ Zoho getRecord API hatası:", error);
-                        tryGetPageInfo();
-                    });
-                }
-            });
-
-            // YÖNTEM 3: getPageInfo (son çare)
-            function tryGetPageInfo() {
-                console.log("🔄 Alternatif yöntem: getPageInfo deneniyor...");
-                try {
-                    ZOHO.CRM.UI.getPageInfo().then(function(pageInfo) {
-                        console.log("📋 Zoho getPageInfo response:", pageInfo);
-                        
-                        if (pageInfo && pageInfo.EntityId) {
-                            var recordId = pageInfo.EntityId;
-                            var module = pageInfo.Entity || "Leads";
-                            
-                            console.log("📋 getPageInfo'dan alınan:", { recordId, module });
-                            
-                            ZOHO.CRM.API.getRecord({
-                                Entity: module,
-                                RecordID: recordId
-                            }).then(function(resp) {
-                                if (resp && resp.data && resp.data[0]) {
-                                    var rec = resp.data[0];
-                                    var zohoCustomerData = {
-                                        id: rec.id,
-                                        name: rec.Full_Name || rec.Full_Name__s || (rec.First_Name && rec.Last_Name ? (rec.First_Name + " " + rec.Last_Name) : "") || rec.Company || "",
-                                        phone: rec.Phone || rec.Mobile || rec.Mobile_Phone || "",
-                                        email: rec.Email || ""
-                                    };
-                                    
-                                    console.log("✅ getPageInfo ile zohoCustomerData:", zohoCustomerData);
-                                    
-                                    if (zohoCustomerData.name && zohoCustomerData.name.trim() !== "") {
-                                        window.zohoCustomerData = zohoCustomerData;
-                                        var event = new CustomEvent("zohoLeadDataLoaded", { detail: zohoCustomerData });
-                                        window.dispatchEvent(event);
-                                        document.dispatchEvent(event);
-                                        console.log("✅ getPageInfo ile event dispatch edildi");
-                                    }
-                                }
-                            });
-                        }
-                    }).catch(function(error) {
-                        console.error("❌ getPageInfo hatası:", error);
-                    });
-                } catch (e) {
-                    console.error("❌ getPageInfo try-catch hatası:", e);
-                }
+            } catch(e) {
+                console.warn("⚠️ getRecordId() hata → PageLoad verisini kullanıyoruz");
             }
 
-            // Sayfa yüklendiğinde hemen getRecordId() ile dene
-            setTimeout(function() {
-                if (!fetchLeadWithRecordId()) {
-                    tryGetPageInfo();
-                }
-            }, 500);
-        }
+            if (!recordId) {
+                console.error("❌ Lead ID bulunamadı, Zoho widget boş sayfada açılmış olabilir");
+                return;
+            }
 
-        // Zoho SDK yüklendiğinde başlat
-        if (typeof ZOHO !== 'undefined' && ZOHO.embeddedApp) {
-            ZOHO.embeddedApp.init();
-            loadZohoLeadData();
-        } else {
-            // SDK henüz yüklenmediyse bekle
-            window.addEventListener('load', function() {
-                if (typeof ZOHO !== 'undefined' && ZOHO.embeddedApp) {
-                    ZOHO.embeddedApp.init();
-                    loadZohoLeadData();
-                }
+            // 2) Lead kaydını çek
+            const leadResp = await ZOHO.CRM.API.getRecord({
+                entity: module,
+                recordId: recordId
             });
-        }
+
+            console.log("📥 Zoho lead response:", leadResp);
+
+            if (!leadResp || !leadResp.data || !leadResp.data[0]) {
+                console.error("❌ Lead bulunamadı");
+                return;
+            }
+
+            const lead = leadResp.data[0];
+
+            // 3) UI'nin beklediği temiz JSON formatını oluştur
+            const payload = {
+                id: lead.id,
+                name: lead.Full_Name 
+                        || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim()
+                        || lead.Company
+                        || "",
+                phone: lead.Phone || lead.Mobile || "",
+                email: lead.Email || ""
+            };
+
+            console.log("📌 Gönderilen zohoCustomerData:", payload);
+
+            // 4) UI tarafı için event gönder
+            window.zohoCustomerData = payload;
+
+            const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+            window.dispatchEvent(evt);
+            document.dispatchEvent(evt);
+
+            console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
+        });
+
+        ZOHO.embeddedApp.init();
+        console.log("🔥 Zoho Embedded App INIT tamam");
         
         // TEST MODU: URL parametrelerinden test verisi al
         // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
@@ -423,7 +283,7 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-     <script src="app.js?v=67"></script>
+     <script src="app.js?v=68"></script>
     <script>
         // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
         window.openSidebarNow = function() {
