@@ -429,17 +429,25 @@ async function loadConversations(silent = false) {
         
         console.log('[loadConversations] zohoCustomerData:', zohoData);
         console.log('[loadConversations] hasZohoData:', hasZohoData, 'showAllConversations:', state.showAllConversations);
+        console.log('[loadConversations] window.zohoCustomerData direkt kontrol:', window.zohoCustomerData);
         
         if (hasZohoData && !state.showAllConversations) {
             // Yeni lead sayfasına girildiğinde: sadece o lead'in konuşmaları
             state.filterByZohoLead = true;
             state.conversations = filterConversationsByZohoLead(conversations);
             console.log(`✅ Zoho lead'e göre filtrelendi: ${state.conversations.length}/${conversations.length}`);
+            console.log(`🔍 Filtrelenmiş konuşmalar:`, state.conversations.map(c => ({ name: c.contactName, phone: c.phoneNumber, email: c.email })));
         } else {
             // Ya Zoho datası yok ya da kullanıcı "tüm konuşmaları göster" dedi
             state.filterByZohoLead = false;
             state.conversations = conversations;
             console.log('ℹ️ Filtre yok, tüm konuşmalar gösteriliyor:', conversations.length);
+            if (!hasZohoData) {
+                console.log('⚠️ Zoho data yok - hasZohoData:', hasZohoData, 'zohoData:', zohoData);
+            }
+            if (state.showAllConversations) {
+                console.log('ℹ️ showAllConversations=true, filtreleme kapalı');
+            }
         }
         
         renderConversations();

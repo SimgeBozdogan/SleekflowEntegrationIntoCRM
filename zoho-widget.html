@@ -336,6 +336,7 @@
             
             if (testPhone || testEmail) {
                 console.log('🧪 TEST MODU: URL parametrelerinden test verisi alınıyor...');
+                console.log('🧪 Test parametreleri:', { testPhone, testEmail, testName });
                 const testData = {
                     name: testName || 'Test Lead',
                     phone: testPhone || '',
@@ -346,21 +347,43 @@
                 
                 window.zohoCustomerData = testData;
                 console.log('✅ TEST: window.zohoCustomerData set edildi:', testData);
+                console.log('✅ TEST: window.zohoCustomerData.phone:', window.zohoCustomerData.phone);
+                console.log('✅ TEST: window.zohoCustomerData.email:', window.zohoCustomerData.email);
                 
-                // Event dispatch et
-                if (typeof window !== 'undefined') {
-                    setTimeout(() => {
+                // Event dispatch et - app.js yüklendikten sonra çalışsın
+                function dispatchTestEvent() {
+                    if (typeof window !== 'undefined') {
                         console.log('📤 TEST: Zoho lead data event dispatch ediliyor...');
                         const event = new CustomEvent('zohoLeadDataLoaded', { 
                             detail: testData 
                         });
                         window.dispatchEvent(event);
-                    }, 1000);
+                        document.dispatchEvent(event); // Hem window hem document'e
+                        console.log('✅ TEST: Event dispatch edildi');
+                    }
                 }
+                
+                // Hemen dispatch et
+                setTimeout(dispatchTestEvent, 500);
+                // Ayrıca app.js yüklendikten sonra da dispatch et
+                setTimeout(dispatchTestEvent, 2000);
+                setTimeout(dispatchTestEvent, 3000);
                 
                 return true;
             }
             return false;
+        }
+        
+        // Sayfa yüklenir yüklenmez test modunu kontrol et
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                console.log('📄 DOMContentLoaded - Test modu kontrol ediliyor...');
+                checkTestMode();
+            });
+        } else {
+            // Sayfa zaten yüklüyse hemen kontrol et
+            console.log('📄 Sayfa zaten yüklü - Test modu kontrol ediliyor...');
+            checkTestMode();
         }
         
         // Zoho'yu başlat (yüklendikten sonra)
@@ -369,10 +392,12 @@
             console.log('🔍 ZOHO kontrolü:', typeof ZOHO !== 'undefined' ? 'VAR' : 'YOK');
             console.log('🔍 window.location:', window.location.href);
             
-            // Test modunu kontrol et
-            if (checkTestMode()) {
-                console.log('🧪 TEST MODU aktif - Zoho SDK atlanıyor');
-                return; // Test modunda Zoho SDK'yı başlatma
+            // Test modunu kontrol et (eğer daha önce set edilmediyse)
+            if (!window.zohoCustomerData) {
+                if (checkTestMode()) {
+                    console.log('🧪 TEST MODU aktif - Zoho SDK atlanıyor');
+                    return; // Test modunda Zoho SDK'yı başlatma
+                }
             }
             
             setTimeout(() => {
@@ -381,9 +406,16 @@
             }, 1000);
         });
         
-        // Eğer sayfa zaten yüklüyse, hemen çalıştır
+        // Eğer sayfa zaten yüklüyse, hemen çalıştır (test modu değilse)
         if (document.readyState === 'complete') {
             console.log('📄 Sayfa zaten yüklü (complete), initZoho hemen çağrılıyor...');
+            // Test modunu tekrar kontrol et (eğer daha önce set edilmediyse)
+            if (!window.zohoCustomerData) {
+                if (checkTestMode()) {
+                    console.log('🧪 TEST MODU aktif - initZoho atlanıyor');
+                    return;
+                }
+            }
             setTimeout(() => {
                 console.log('⏰ initZoho çağrılıyor (sayfa zaten yüklü)...');
                 initZoho();
@@ -392,7 +424,7 @@
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=34"></script>
+    <script src="app.js?v=35"></script>
     <script>
         // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
         window.openSidebarNow = function() {
