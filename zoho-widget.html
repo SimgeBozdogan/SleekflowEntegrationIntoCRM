@@ -158,6 +158,10 @@
         
         // Zoho Embedded App başlatma
         function initZoho() {
+            console.log('🚀 initZoho() çağrıldı');
+            console.log('🔍 ZOHO typeof:', typeof ZOHO);
+            console.log('🔍 ZOHO === undefined:', typeof ZOHO === 'undefined');
+            
             // Zoho widget içinde değilsek (normal tarayıcıda açılmışsa) Zoho'yu başlatma
             if (typeof ZOHO === 'undefined') {
                 // Sadece 3 kez dene, sonra vazgeç
@@ -168,12 +172,14 @@
                     console.log('⏳ ZOHO yükleniyor... (deneme ' + window.zohoRetryCount + '/3)');
                     setTimeout(initZoho, 2000);
                 } else {
-                    console.log('ℹ️ Zoho widget içinde değil, Zoho SDK atlanıyor');
+                    console.log('⚠️ Zoho widget içinde değil veya ZOHO SDK yüklenemedi, Zoho SDK atlanıyor');
+                    console.log('💡 Bu sayfa Zoho widget iframe içinde açılmamış olabilir');
                 }
                 return;
             }
             
             console.log('✅ ZOHO yüklendi, başlatılıyor...');
+            console.log('🔍 ZOHO.embeddedApp:', typeof ZOHO.embeddedApp);
             
             try {
                 console.log("🔵 Zoho embeddedApp.on('PageLoad') listener eklendi");
