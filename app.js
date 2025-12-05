@@ -629,6 +629,40 @@ function updateChatEmptyView() {
 function renderConversations() {
     const list = elements.conversationsList;
     list.innerHTML = '';
+
+    // 🔴 1. ADIM: Kullanıcı henüz "Tüm konuşmaları göster" demediyse
+    if (!state.showAllConversations) {
+        console.log('ℹ️ showAllConversations = false, sadece buton gösteriliyor');
+
+        list.innerHTML = `
+            <div class="empty-state">
+                <p>📭 Sleekflow konuşmalarını görmek için aşağıdaki butona tıklayın.</p>
+                <p class="empty-hint">Önce tüm konuşmaları açacağız, sonra istersen filtre ekleriz.</p>
+                <button class="btn btn-primary" id="initShowAllConversations" style="margin-top: 15px; padding: 10px 20px;">
+                    Tüm konuşmaları göster
+                </button>
+            </div>
+        `;
+
+        setTimeout(() => {
+            const btn = document.getElementById('initShowAllConversations');
+            if (!btn) return;
+
+            btn.onclick = async function () {
+                console.log('🔘 İlk "Tüm konuşmaları göster" butonuna tıklandı');
+                state.showAllConversations = true;   // Artık listeyi gösterebiliriz
+
+                // Konuşmaları yükle
+                await loadConversations(false);
+
+                // Yüklendikten sonra tekrar çiz
+                renderConversations();
+                updateChatEmptyView();
+            };
+        }, 50);
+
+        return;
+    }
     
     // Debug: Durumu logla
     console.log('🔍 renderConversations - Durum:', {
@@ -1263,10 +1297,16 @@ async function autoConnect() {
                 // Start polling
                 await apiRequest('/polling/start', 'POST');
                 
-                // Only load conversations if successfully connected
-                if (state.sleekflow.connected) {
+                // Only load conversations if successfully connected AND user clicked "show all"
+                // İlk açılışta konuşmaları yükleme, sadece buton göster
+                if (state.sleekflow.connected && state.showAllConversations) {
                     await loadConversations();
                     console.log('✅ Otomatik bağlantı başarılı - konuşmalar yüklendi');
+                } else if (state.sleekflow.connected) {
+                    // Sadece renderConversations çağır, buton gösterilsin
+                    renderConversations();
+                    updateChatEmptyView();
+                    console.log('✅ Otomatik bağlantı başarılı - buton gösteriliyor');
                 }
             } else {
                 // API key might be invalid - don't mark as connected
