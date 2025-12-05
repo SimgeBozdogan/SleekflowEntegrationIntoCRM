@@ -567,7 +567,16 @@ function updateChatEmptyView() {
     
     // Zoho lead data varsa ve filtrelenmiş konuşma yoksa, buton göster
     // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
-    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData && window.zohoCustomerData.name && window.zohoCustomerData.name.trim();
+    // İSİM + TELEFON + EMAIL'den herhangi biri varsa Zoho datası var say
+    let hasZohoData =
+        typeof window !== 'undefined' &&
+        window.zohoCustomerData &&
+        (
+            (window.zohoCustomerData.name && window.zohoCustomerData.name.trim()) ||
+            (window.zohoCustomerData.Full_Name && window.zohoCustomerData.Full_Name.trim()) ||
+            window.zohoCustomerData.phone ||
+            window.zohoCustomerData.email
+        );
     const conversationsLength = state.conversations ? state.conversations.length : 0;
     const allConversationsLength = state.allConversations ? state.allConversations.length : 0;
     const hasFilteredConversations = state.filterByZohoLead && conversationsLength > 0;
@@ -661,7 +670,15 @@ function renderConversations() {
         const zohoData = (typeof window !== 'undefined' && window.zohoCustomerData) 
             ? window.zohoCustomerData 
             : null;
-        const hasZohoData = !!(zohoData && (zohoData.phone || zohoData.email));
+        // İSİM + TELEFON + EMAIL'den herhangi biri varsa Zoho datası var say
+        const hasZohoData = !!(
+            zohoData && (
+                zohoData.name ||
+                zohoData.Full_Name ||
+                zohoData.phone ||
+                zohoData.email
+            )
+        );
 
         // Eğer Zoho data varsa ve eşleşen konuşmalar varsa, onları göster + buton ekle
         if (hasZohoData && state.filterByZohoLead && state.conversations && state.conversations.length > 0) {
