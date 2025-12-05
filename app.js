@@ -415,6 +415,15 @@ async function loadConversations(silent = false) {
         return;
     }
 
+    // Yeni lead sayfasına girildiğinde showAllConversations'ı sıfırla (eğer Zoho data varsa)
+    // Ama sadece ilk yüklemede, sonraki yüklemelerde kullanıcının tercihini koru
+    if (typeof window !== 'undefined' && window.zohoCustomerData && !silent) {
+        // Eğer Zoho data varsa ve kullanıcı özel olarak "tüm konuşmaları göster" demediyse
+        // (yani butona basmadıysa), filtreleme yap
+        // showAllConversations sadece kullanıcı butona bastığında true olur
+        // Bu yüzden burada bir şey yapmıyoruz, sadece kontrol ediyoruz
+    }
+
     if (!silent) {
         console.log('📥 Konuşmalar yükleniyor...');
         showLoading();
@@ -444,7 +453,8 @@ async function loadConversations(silent = false) {
         // 🔹 2) Varsayılan: hiç filtre yoksa tüm konuşmalar
         let filtered = conversations;
 
-        // 🔹 3) Eğer "Tüm konuşmaları göster" aktifse, filtreleme yapma
+        // 🔹 3) ÖNCE Zoho lead kontrolü yap (showAllConversations false ise)
+        // Eğer "Tüm konuşmaları göster" aktifse, filtreleme yapma
         if (state.showAllConversations) {
             console.log('✅ showAllConversations = true, filtreleme yapılmıyor, tüm konuşmalar gösteriliyor');
             filtered = conversations;
