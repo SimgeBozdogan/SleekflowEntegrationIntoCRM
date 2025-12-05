@@ -417,7 +417,8 @@ async function loadConversations(silent = false) {
 
     // Yeni lead sayfasına girildiğinde showAllConversations'ı sıfırla (eğer Zoho data varsa)
     // Bu sayede her yeni lead'e girildiğinde o lead'e göre filtreleme yapılır
-    if (typeof window !== 'undefined' && window.zohoCustomerData && !silent) {
+    // NOT: silent mode'da bile kontrol yap (polling sırasında da filtreleme yapılmalı)
+    if (typeof window !== 'undefined' && window.zohoCustomerData) {
         // Zoho data varsa, showAllConversations'ı false yap (yeni lead'e göre filtreleme yapılacak)
         // Sadece kullanıcı "Tüm konuşmaları göster" butonuna basarsa true olur
         if (state.showAllConversations) {
