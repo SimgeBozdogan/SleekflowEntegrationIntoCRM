@@ -1354,13 +1354,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved state
         loadSavedState();
         
-        // Otomatik olarak konuşmaları yükle (bağlantı varsa)
-        console.log('🚀 Sayfa yüklendi, konuşmalar yükleniyor...');
-        setTimeout(() => {
-            loadConversations().catch(err => {
-                console.error('❌ Konuşmalar yüklenirken hata:', err);
-            });
-        }, 500);
+        // İLK AÇILIŞTA: Konuşmaları otomatik yükleme, sadece buton göster
+        // Kullanıcı "Tüm konuşmaları göster" butonuna basınca yüklenecek
+        console.log('🚀 Sayfa yüklendi, buton gösteriliyor...');
+        renderConversations(); // Sadece buton göster
         
         // Auto-connect
         autoConnect().then(() => {
