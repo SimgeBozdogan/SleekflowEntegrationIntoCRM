@@ -413,8 +413,8 @@ async function loadConversations(silent = false) {
         const conversations = (result && result.conversations) ? result.conversations : [];
 
         // Debug: ilk birkaç konuşmayı logla
-        console.log('📊 SleekFlow API dönüşü (ilk 5):',
-            conversations.slice(0, 5).map(c => ({
+        console.log('📊 SleekFlow API dönüşü (ilk 10):',
+            conversations.slice(0, 10).map(c => ({
                 id: c.id,
                 name: c.contactName,
                 phone: c.phoneNumber,
@@ -422,6 +422,16 @@ async function loadConversations(silent = false) {
                 channel: c.channel || c.rawChannel
             }))
         );
+        
+        // Zoho data varsa, filtreleme öncesi durumu logla
+        if (window.zohoCustomerData) {
+            console.log('🔍 Zoho data mevcut, filtreleme yapılacak:', {
+                zohoPhone: window.zohoCustomerData.phone,
+                zohoEmail: window.zohoCustomerData.email,
+                filterByZohoLead: state.filterByZohoLead,
+                totalConversations: conversations.length
+            });
+        }
 
         // Tüm konuşmaları kaydet
         state.allConversations = conversations;
@@ -475,35 +485,74 @@ function filterConversationsByZohoLead(conversations) {
     }
     
     const filtered = conversations.filter(conv => {
+        let matched = false;
+        
         // Telefon numarası eşleşmesi
         if (zohoData.phone && conv.phoneNumber) {
             const zohoPhone = zohoData.phone.replace(/\D/g, '').trim();
             const convPhone = conv.phoneNumber.replace(/\D/g, '').trim();
+            
+            console.log(`🔍 Telefon karşılaştırması: Zoho="${zohoPhone}" vs Conv="${convPhone}" (${conv.contactName})`);
             
             if (zohoPhone && convPhone) {
                 // Son 10 haneyi karşılaştır (ülke kodu olmadan)
                 const zohoLast10 = zohoPhone.slice(-10);
                 const convLast10 = convPhone.slice(-10);
                 
-                if (zohoLast10 === convLast10 || convPhone.includes(zohoPhone) || zohoPhone.includes(convPhone)) {
-                    console.log('✅ Telefon eşleşti:', zohoPhone, '==', convPhone, 'Contact:', conv.contactName);
-                    return true;
+                // Ayrıca son 9 haneyi de dene (bazı durumlarda 0 ile başlayan numaralar için)
+                const zohoLast9 = zohoPhone.slice(-9);
+                const convLast9 = convPhone.slice(-9);
+                
+                if (zohoLast10 === convLast10 || 
+                    zohoLast9 === convLast9 ||
+                    convPhone.includes(zohoPhone) || 
+                    zohoPhone.includes(convPhone) ||
+                    zohoLast10 === convLast9 ||
+                    zohoLast9 === convLast10) {
+                    console.log('✅ Telefon eşleşti:', {
+                        zohoOriginal: zohoData.phone,
+                        zohoCleaned: zohoPhone,
+                        zohoLast10: zohoLast10,
+                        convOriginal: conv.phoneNumber,
+                        convCleaned: convPhone,
+                        convLast10: convLast10,
+                        contact: conv.contactName
+                    });
+                    matched = true;
+                } else {
+                    console.log('❌ Telefon eşleşmedi:', {
+                        zohoLast10,
+                        convLast10,
+                        contact: conv.contactName
+                    });
                 }
             }
         }
         
         // Email eşleşmesi
-        if (zohoData.email && conv.email) {
+        if (!matched && zohoData.email && conv.email) {
             const zohoEmail = zohoData.email.toLowerCase().trim();
             const convEmail = conv.email.toLowerCase().trim();
             
+            console.log(`🔍 Email karşılaştırması: Zoho="${zohoEmail}" vs Conv="${convEmail}" (${conv.contactName})`);
+            
             if (zohoEmail && convEmail && zohoEmail === convEmail) {
-                console.log('✅ Email eşleşti:', zohoEmail, '==', convEmail, 'Contact:', conv.contactName);
-                return true;
+                console.log('✅ Email eşleşti:', {
+                    zohoEmail,
+                    convEmail,
+                    contact: conv.contactName
+                });
+                matched = true;
+            } else {
+                console.log('❌ Email eşleşmedi:', {
+                    zohoEmail,
+                    convEmail,
+                    contact: conv.contactName
+                });
             }
         }
         
-        return false;
+        return matched;
     });
     
     console.log(`📊 Filtreleme sonucu: ${filtered.length}/${conversations.length} konuşma eşleşti`);
