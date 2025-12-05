@@ -972,8 +972,16 @@ function updateLeadFilterInfo() {
     if (!infoEl) return;
     
     // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
-    let hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData &&
-                        (window.zohoCustomerData.phone || window.zohoCustomerData.email);
+    // İSİM + TELEFON + EMAIL'den herhangi biri varsa Zoho datası var say
+    let hasZohoData =
+        typeof window !== 'undefined' &&
+        window.zohoCustomerData &&
+        (
+            window.zohoCustomerData.name ||
+            window.zohoCustomerData.Full_Name ||
+            window.zohoCustomerData.phone ||
+            window.zohoCustomerData.email
+        );
     
     // Eğer Zoho datası yoksa ya da tüm konuşmalar modundayız => barı gizle
     if (!hasZohoData || state.showAllConversations || !state.filterByZohoLead) {
