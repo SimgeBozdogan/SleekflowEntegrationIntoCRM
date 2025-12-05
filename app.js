@@ -510,37 +510,44 @@ function filterConversationsByZohoLead(conversations) {
         
         const convNameNormalized = normalizeName(conv.contactName);
         
-        console.log(`🔍 İsim karşılaştırması: Zoho="${zohoNameNormalized}" vs Conv="${convNameNormalized}"`);
+        console.log(`🔍 İsim karşılaştırması (CONTAINS): Zoho="${zohoNameNormalized}" vs Conv="${convNameNormalized}"`);
         
-        // Tam eşleşme veya birinin diğerini içermesi
-        if (zohoNameNormalized === convNameNormalized || 
-            zohoNameNormalized.includes(convNameNormalized) || 
+        // CONTAINS (içerme) mantığı: Bir isim diğerini içeriyorsa eşleşir
+        // Örnek: "Ahmet Yılmaz" içinde "Ahmet" varsa veya "Ahmet" içinde "Ahmet Yılmaz" varsa
+        if (zohoNameNormalized.includes(convNameNormalized) || 
             convNameNormalized.includes(zohoNameNormalized)) {
-            console.log('✅ İsim eşleşti:', {
+            console.log('✅ İsim CONTAINS ile eşleşti:', {
                 zohoName: zohoData.name,
                 convName: conv.contactName,
                 zohoNormalized: zohoNameNormalized,
-                convNormalized: convNameNormalized
+                convNormalized: convNameNormalized,
+                matchType: zohoNameNormalized.includes(convNameNormalized) ? 'Zoho contains Conv' : 'Conv contains Zoho'
             });
             return true;
         }
         
-        // Kelime bazlı eşleşme (en az 2 kelime ortaksa)
-        const zohoWords = zohoNameNormalized.split(/\s+/).filter(w => w.length > 2);
-        const convWords = convNameNormalized.split(/\s+/).filter(w => w.length > 2);
+        // Kelime bazlı eşleşme: En az 1 kelime ortaksa eşleşir (daha esnek)
+        const zohoWords = zohoNameNormalized.split(/\s+/).filter(w => w.length > 1);
+        const convWords = convNameNormalized.split(/\s+/).filter(w => w.length > 1);
         
         if (zohoWords.length > 0 && convWords.length > 0) {
             const commonWords = zohoWords.filter(w => convWords.includes(w));
-            if (commonWords.length >= 2 || (commonWords.length === 1 && zohoWords.length === 1 && convWords.length === 1)) {
-                console.log('✅ İsim kelime bazlı eşleşti:', {
+            if (commonWords.length >= 1) { // En az 1 kelime ortaksa eşleşir
+                console.log('✅ İsim kelime bazlı eşleşti (CONTAINS):', {
                     zohoName: zohoData.name,
                     convName: conv.contactName,
-                    commonWords: commonWords
+                    commonWords: commonWords,
+                    zohoWords: zohoWords,
+                    convWords: convWords
                 });
                 return true;
             }
         }
         
+        console.log('❌ İsim eşleşmedi:', {
+            zohoName: zohoData.name,
+            convName: conv.contactName
+        });
         return false;
     });
     
