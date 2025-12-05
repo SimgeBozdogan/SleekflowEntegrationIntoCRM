@@ -180,8 +180,9 @@
 
                     var rec = resp.data[0];
 
-                    // Burada alan adlarını kendi CRM alanlarına göre güncelle
-                    // ÖNEMLİ: Zoho CRM'deki gerçek alan adlarınızı buraya yazın
+                    // Zoho CRM API dokümantasyonuna göre:
+                    // - Full_Name: Leads, Contacts, Users modüllerinde read-only alan (First_Name + Last_Name birleşimi)
+                    // - Phone, Mobile, Email: Standart alanlar
                     // Debug: Tüm alanları logla
                     console.log("📋 Zoho record tüm alanlar:", Object.keys(rec));
                     console.log("📋 Zoho record örnek değerler:", {
@@ -194,6 +195,8 @@
                         Last_Name: rec.Last_Name
                     });
                     
+                    // Zoho CRM API'den gelen veriyi normalize et
+                    // Full_Name öncelikli (dokümantasyona göre Leads modülünde mevcut)
                     var zohoCustomerData = {
                         id: rec.id,
                         name: rec.Full_Name || rec.Full_Name__s || (rec.First_Name && rec.Last_Name ? (rec.First_Name + " " + rec.Last_Name) : "") || rec.Company || "",
