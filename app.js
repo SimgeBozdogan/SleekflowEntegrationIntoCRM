@@ -406,94 +406,58 @@ async function loadConversations(silent = false) {
     }
     
     try {
-        // Channel filtresi varsa query parametresi olarak ekle
-        const url = state.selectedChannelFilter 
+        const url = state.selectedChannelFilter
             ? `/sleekflow/conversations?channel=${encodeURIComponent(state.selectedChannelFilter)}`
             : '/sleekflow/conversations';
         
         const result = await apiRequest(url, 'GET');
+        const conversations = (result && result.conversations) ? result.conversations : [];
         
-        console.log('✅ Konuşmalar alındı:', result);
+        // Her zaman tüm konuşmaları burada saklıyoruz
+        state.allConversations = conversations;
         
-        if (result && result.conversations) {
-            // Tüm konuşmaları sakla
-            state.allConversations = result.conversations;
-            
-            // Zoho lead bilgisi varsa ve kullanıcı "Tüm konuşmaları göster" dememişse, OTOMATIK filtrele
-            // Telefon VEYA email varsa yeterli (ikisi birden gerekmez)
-            const hasZohoData = typeof window !== 'undefined' && 
-                                window.zohoCustomerData && 
-                                (window.zohoCustomerData.phone || window.zohoCustomerData.email);
-            
-            console.log('🔍 loadConversations - Zoho data kontrolü:', {
-                hasZohoData,
-                showAllConversations: state.showAllConversations,
-                filterByZohoLead: state.filterByZohoLead,
-                zohoData: hasZohoData ? {
-                    name: window.zohoCustomerData.name,
-                    phone: window.zohoCustomerData.phone,
-                    email: window.zohoCustomerData.email
-                } : null,
-                windowZohoData: window.zohoCustomerData
-            });
-            
-            // Zoho data varsa VE kullanıcı "Tüm konuşmaları göster" dememişse, MUTLAKA filtrele
-            if (hasZohoData && !state.showAllConversations) {
-                // OTOMATIK FİLTRELEME - Kullanıcıya sormadan
-                console.log('🔍 Zoho data bulundu, filtreleme yapılıyor...');
-                state.filterByZohoLead = true;
-                state.conversations = filterConversationsByZohoLead(result.conversations);
-                console.log(`✅ Zoho lead'e göre OTOMATIK filtrelendi: ${state.conversations.length}/${result.conversations.length} konuşma`);
-            } else {
-                if (!hasZohoData) {
-                    // Zoho data yoksa, tüm konuşmaları göster
-                    state.filterByZohoLead = false;
-                    state.conversations = result.conversations;
-                    console.log('ℹ️ Zoho data yok, tüm konuşmalar gösteriliyor');
-                } else if (state.showAllConversations) {
-                    // Kullanıcı "Tüm konuşmaları göster" dedi, filtreleme yapma
-                    state.filterByZohoLead = false;
-                    state.conversations = result.conversations;
-                    console.log('ℹ️ Kullanıcı "Tüm konuşmaları göster" dedi, filtreleme yapılmıyor');
-                }
-            }
-            
-            // Pending filter varsa, şimdi filtrele
-            if (state.pendingZohoFilter && hasZohoData && !state.showAllConversations) {
-                state.pendingZohoFilter = false;
-                state.filterByZohoLead = true;
-                state.conversations = filterConversationsByZohoLead(result.conversations);
-                console.log(`🔍 Pending filter uygulandı: ${state.conversations.length}/${result.conversations.length} konuşma`);
-            }
-            
-            console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
-            renderConversations();
-            updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
-            
-            // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
-            setTimeout(() => {
-                updateChatEmptyView();
-            }, 200);
-            
-            // Zoho widget içinde çalışıyorsa, conversation'lar yüklendiğini bildir
-            if (typeof window !== 'undefined') {
-                window.dispatchEvent(new CustomEvent('conversationsLoaded'));
-            }
+        // Zoho datası var mı?
+        const zohoData =
+            (typeof window !== 'undefined' && window.zohoCustomerData)
+                ? window.zohoCustomerData
+                : null;
+        
+        const hasZohoData = !!(
+            zohoData &&
+            (zohoData.phone || zohoData.email)
+        );
+        
+        console.log('[loadConversations] zohoCustomerData:', zohoData);
+        console.log('[loadConversations] hasZohoData:', hasZohoData, 'showAllConversations:', state.showAllConversations);
+        
+        if (hasZohoData && !state.showAllConversations) {
+            // Yeni lead sayfasına girildiğinde: sadece o lead'in konuşmaları
+            state.filterByZohoLead = true;
+            state.conversations = filterConversationsByZohoLead(conversations);
+            console.log(`✅ Zoho lead'e göre filtrelendi: ${state.conversations.length}/${conversations.length}`);
         } else {
-            console.warn('⚠️ Konuşmalar bulunamadı');
-            renderConversations(); // Boş liste göster
-            updateChatEmptyView(); // Chat view'ı güncelle
+            // Ya Zoho datası yok ya da kullanıcı "tüm konuşmaları göster" dedi
+            state.filterByZohoLead = false;
+            state.conversations = conversations;
+            console.log('ℹ️ Filtre yok, tüm konuşmalar gösteriliyor:', conversations.length);
+        }
+        
+        renderConversations();
+        updateChatEmptyView();
+        updateLeadFilterInfo();
+        
+        // Zoho widget içinde çalışıyorsa event gönder
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('conversationsLoaded'));
         }
     } catch (error) {
         const errorMsg = error.message || 'Bilinmeyen hata';
         
-        // SleekFlow sunucu hatası (500) ise: sadece logla, popup gösterme
         if (errorMsg.includes('SleekFlow sunucu hatası')) {
             console.warn('⚠️ SleekFlow 500 (Internal Server Error) verdi, mevcut konuşma listesi korunuyor.');
-            return; // kullanıcıya tost gösterme
+            return;
         }
         
-        // Diğer hatalarda eski davranış kalsın
         if (!silent) {
             console.error('❌ Konuşmalar yüklenemedi:', errorMsg);
             if (errorMsg.includes('401') || errorMsg.includes('bağlantısı yok')) {
