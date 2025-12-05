@@ -428,20 +428,15 @@ async function loadConversations(silent = false) {
         const result = await apiRequest(url, 'GET');
         const all = (result && result.conversations) ? result.conversations : [];
 
-        // Tüm konuşmaları kaydet
         state.allConversations = all;
 
-        // Eğer kullanıcı "tüm konuşmaları göster" dememişse → filtrele
+        // Eğer kullanıcı "tüm konuşmaları göster" modunda DEĞİLSE → Zoho lead'e göre filtrele
         if (!state.showAllConversations && typeof window !== 'undefined' && window.zohoCustomerData) {
             const zName = normalizeName(window.zohoCustomerData.name || window.zohoCustomerData.Full_Name || '');
             if (zName) {
                 state.conversations = all.filter(c => {
                     const cName = normalizeName(c.contactName || c.name || '');
-                    if (!cName) return false;
-                    // Tam eşleşme veya içerme
-                    return cName === zName || 
-                           (cName.length > 3 && zName.length > 3 && 
-                            (cName.includes(zName) || zName.includes(cName)));
+                    return cName && cName.includes(zName);
                 });
                 console.log(`📊 Filtreleme: ${state.conversations.length}/${all.length} konuşma eşleşti`);
             } else {
@@ -657,13 +652,8 @@ function renderConversations() {
 
     list.innerHTML = '';
 
-    if (convs.length === 0) {
-        list.innerHTML = `
-            <div class="empty-state">
-                <p>${typeof window !== 'undefined' && window.zohoCustomerData ? 'Bu lead ile konuşma yok.' : 'Henüz konuşma yok'}</p>
-            </div>
-        `;
-    } else {
+    // Konuşmalar varsa listele
+    if (convs.length > 0) {
         convs.forEach(conv => {
             const item = document.createElement('div');
             item.className = 'conversation-item';
@@ -689,19 +679,28 @@ function renderConversations() {
             item.onclick = () => selectConversation(conv);
             list.appendChild(item);
         });
+    } else {
+        // Bu lead ile konuşma yoksa
+        list.innerHTML = `
+            <div class="empty-state">
+                <p>Bu lead ile konuşma yok.</p>
+            </div>
+        `;
     }
 
-    // 🔥 BUTON HER ZAMAN ALTTA
+    // 🔥 BUTON HER ZAMAN en altta görünür
     const btn = document.createElement('button');
     btn.id = 'showAllConversationsBtn';
     btn.className = 'btn btn-primary';
-    btn.style.cssText = 'width: 100%; margin-top: 10px; padding: 10px;';
+    btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 10px; cursor: pointer;';
+
     btn.textContent = state.showAllConversations
-        ? 'Sadece bu lead\'i göster'
+        ? "Sadece bu lead'in konuşmalarını göster"
         : 'Tüm konuşmaları göster';
 
     btn.onclick = async () => {
         state.showAllConversations = !state.showAllConversations;
+        state.filterByZohoLead = !state.showAllConversations;
         await loadConversations(false);
     };
 
@@ -1439,7 +1438,7 @@ window.addEventListener('message', handleZohoCallback);
 // ÖNEMLİ: Bu listener'ı sayfa yüklenmeden önce ekle
 (function() {
     function handleZohoLeadDataLoaded(event) {
-        console.log('📋 Zoho lead bilgisi yüklendi:', event.detail);
+        console.log('📌 Zoho lead loaded:', event.detail);
         
         // State kontrolü
         if (!state) {
@@ -1448,16 +1447,13 @@ window.addEventListener('message', handleZohoCallback);
             return;
         }
         
-        // window.zohoCustomerData'yı set et
         window.zohoCustomerData = event.detail;
         
-        // Her lead değişiminde filtre aktif olsun
+        // Yeni lead'e girildiğinde filtre aktif olsun
         state.showAllConversations = false;
+        state.filterByZohoLead = true;
         
-        // Konuşmaları yükle (loadConversations içinde filtreleme yapılacak)
-        if (typeof loadConversations === 'function') {
-            loadConversations();
-        }
+        loadConversations();
     }
     
     // Event listener'ı ekle (hem window hem document için)
