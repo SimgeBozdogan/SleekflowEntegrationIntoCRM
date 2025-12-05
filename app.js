@@ -454,6 +454,19 @@ async function loadConversations(silent = false) {
         updateChatEmptyView();
         updateLeadFilterInfo();
         
+        // Eğer pendingZohoFilter flag'i varsa, şimdi filtrele
+        if (state.pendingZohoFilter && window.zohoCustomerData) {
+            console.log('🔄 Pending Zoho filter var, şimdi filtreleme yapılıyor...');
+            state.pendingZohoFilter = false;
+            state.showAllConversations = false;
+            state.filterByZohoLead = true;
+            state.conversations = filterConversationsByZohoLead(state.conversations);
+            renderConversations();
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            console.log(`✅ Pending filter uygulandı: ${state.conversations.length}/${state.allConversations.length} konuşma`);
+        }
+        
         // Zoho widget içinde çalışıyorsa event gönder
         if (typeof window !== 'undefined') {
             window.dispatchEvent(new CustomEvent('conversationsLoaded'));
