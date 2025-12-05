@@ -181,12 +181,27 @@
                     var rec = resp.data[0];
 
                     // Burada alan adlarını kendi CRM alanlarına göre güncelle
+                    // ÖNEMLİ: Zoho CRM'deki gerçek alan adlarınızı buraya yazın
+                    // Debug: Tüm alanları logla
+                    console.log("📋 Zoho record tüm alanlar:", Object.keys(rec));
+                    console.log("📋 Zoho record örnek değerler:", {
+                        id: rec.id,
+                        Full_Name: rec.Full_Name,
+                        Phone: rec.Phone,
+                        Mobile: rec.Mobile,
+                        Email: rec.Email,
+                        First_Name: rec.First_Name,
+                        Last_Name: rec.Last_Name
+                    });
+                    
                     var zohoCustomerData = {
                         id: rec.id,
-                        name: rec.Full_Name || rec.Full_Name__s || rec.Company || "",
+                        name: rec.Full_Name || rec.Full_Name__s || (rec.First_Name && rec.Last_Name ? (rec.First_Name + " " + rec.Last_Name) : "") || rec.Company || "",
                         phone: rec.Phone || rec.Mobile || rec.Mobile_Phone || "",
                         email: rec.Email || ""
                     };
+                    
+                    console.log("🔍 Oluşturulan zohoCustomerData:", zohoCustomerData);
 
                     // 1) Global değişken olarak widget içinde sakla
                     window.zohoCustomerData = zohoCustomerData;
