@@ -652,8 +652,12 @@ function renderConversations() {
 
     list.innerHTML = '';
 
+    // İLK AÇILIŞ: Eğer hiç konuşma yüklenmemişse → SADECE BUTON GÖSTER
+    if (state.allConversations.length === 0 && convs.length === 0) {
+        // Sadece buton göster, mesaj gösterme
+    }
     // Konuşmalar varsa listele
-    if (convs.length > 0) {
+    else if (convs.length > 0) {
         convs.forEach(conv => {
             const item = document.createElement('div');
             item.className = 'conversation-item';
@@ -679,8 +683,9 @@ function renderConversations() {
             item.onclick = () => selectConversation(conv);
             list.appendChild(item);
         });
-    } else {
-        // Bu lead ile konuşma yoksa
+    } 
+    // Konuşmalar yüklendi ama bu lead ile eşleşen yok
+    else if (state.allConversations.length > 0) {
         list.innerHTML = `
             <div class="empty-state">
                 <p>Bu lead ile konuşma yok.</p>
