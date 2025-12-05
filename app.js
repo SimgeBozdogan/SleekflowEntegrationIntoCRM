@@ -649,10 +649,66 @@ function renderConversations() {
             : null;
         const hasZohoData = !!(zohoData && (zohoData.phone || zohoData.email));
 
-        // Eğer Zoho data varsa ve eşleşen konuşmalar varsa, önce onları göster
+        // Eğer Zoho data varsa ve eşleşen konuşmalar varsa, onları göster + buton ekle
         if (hasZohoData && state.filterByZohoLead && state.conversations && state.conversations.length > 0) {
             console.log('✅ Zoho lead ile eşleşen konuşmalar var, gösteriliyor:', state.conversations.length);
-            // Konuşmaları göster (aşağıdaki kod devam edecek - return etme!)
+            
+            // Zoho lead konuşmalarını göster (ÜSTTE)
+            state.conversations.forEach(conv => {
+                const item = document.createElement('div');
+                item.className = 'conversation-item';
+                if (state.currentConversation && state.currentConversation.id === conv.id) {
+                    item.classList.add('active');
+                }
+                
+                const channel = conv.channel || conv.rawChannel || '';
+                const channelIcon = getChannelIcon(channel);
+                
+                item.innerHTML = `
+                    <div class="conversation-avatar">
+                        ${getInitials(conv.contactName || 'U')}
+                        ${channelIcon ? `<span class="channel-icon">${channelIcon}</span>` : ''}
+                    </div>
+                    <div class="conversation-info">
+                        <div class="conversation-name">${conv.contactName || 'Bilinmeyen'}</div>
+                        <div class="conversation-preview">${conv.lastMessage || ''}</div>
+                    </div>
+                    <div class="conversation-time">${formatTime(conv.lastMessageTime)}</div>
+                `;
+                
+                item.addEventListener('click', () => selectConversation(conv));
+                list.appendChild(item);
+            });
+            
+            // Buton ekle (ALTTA)
+            const buttonContainer = document.createElement('div');
+            buttonContainer.className = 'empty-state';
+            buttonContainer.style.marginTop = '20px';
+            buttonContainer.style.padding = '15px';
+            buttonContainer.style.textAlign = 'center';
+            buttonContainer.innerHTML = `
+                <button class="btn btn-primary" id="initShowAllConversations" style="padding: 10px 20px;">
+                    Tüm konuşmaları göster
+                </button>
+            `;
+            list.appendChild(buttonContainer);
+            
+            setTimeout(() => {
+                const btn = document.getElementById('initShowAllConversations');
+                if (!btn) return;
+
+                btn.onclick = async function () {
+                    console.log('🔘 "Tüm konuşmaları göster" butonuna tıklandı');
+                    state.showAllConversations = true;
+                    await loadConversations(false);
+                    renderConversations();
+                    updateChatEmptyView();
+                };
+            }, 50);
+            
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            return;
         } else if (hasZohoData && state.filterByZohoLead && state.conversations && state.conversations.length === 0 && state.allConversations && state.allConversations.length > 0) {
             // Zoho lead var ama eşleşen konuşma yok (tüm konuşmalar yüklendi ama eşleşen yok)
             console.log('ℹ️ Zoho lead var ama eşleşen konuşma yok');
@@ -706,7 +762,6 @@ function renderConversations() {
 
             return;
         }
-        // Eğer Zoho lead konuşmaları varsa, aşağıdaki kod devam edecek (return etmedik)
     }
     
     // Debug: Durumu logla
