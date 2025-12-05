@@ -326,11 +326,55 @@
             }
         }
         
+        // TEST MODU: URL parametrelerinden test verisi al
+        // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
+        function checkTestMode() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const testPhone = urlParams.get('testPhone');
+            const testEmail = urlParams.get('testEmail');
+            const testName = urlParams.get('testName');
+            
+            if (testPhone || testEmail) {
+                console.log('🧪 TEST MODU: URL parametrelerinden test verisi alınıyor...');
+                const testData = {
+                    name: testName || 'Test Lead',
+                    phone: testPhone || '',
+                    email: testEmail || '',
+                    id: 'TEST123',
+                    entity: 'Leads'
+                };
+                
+                window.zohoCustomerData = testData;
+                console.log('✅ TEST: window.zohoCustomerData set edildi:', testData);
+                
+                // Event dispatch et
+                if (typeof window !== 'undefined') {
+                    setTimeout(() => {
+                        console.log('📤 TEST: Zoho lead data event dispatch ediliyor...');
+                        const event = new CustomEvent('zohoLeadDataLoaded', { 
+                            detail: testData 
+                        });
+                        window.dispatchEvent(event);
+                    }, 1000);
+                }
+                
+                return true;
+            }
+            return false;
+        }
+        
         // Zoho'yu başlat (yüklendikten sonra)
         window.addEventListener('load', function() {
             console.log('📄 window.load event - Zoho widget sayfası yüklendi');
             console.log('🔍 ZOHO kontrolü:', typeof ZOHO !== 'undefined' ? 'VAR' : 'YOK');
             console.log('🔍 window.location:', window.location.href);
+            
+            // Test modunu kontrol et
+            if (checkTestMode()) {
+                console.log('🧪 TEST MODU aktif - Zoho SDK atlanıyor');
+                return; // Test modunda Zoho SDK'yı başlatma
+            }
+            
             setTimeout(() => {
                 console.log('⏰ initZoho çağrılıyor...');
                 initZoho();
