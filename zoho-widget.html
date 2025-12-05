@@ -149,257 +149,61 @@
     <!-- Toast Notifications -->
     <div class="toast-container" id="toastContainer"></div>
 
-    <!-- Zoho Embedded App API -->
-    <script src="https://static.zoho.com/crm/js/api/v2/zoho.js"></script>
+    <!-- Zoho Embedded App SDK -->
+    <script src="https://crm.zoho.com/crm/javascript/ZohoEmbeddedAppSDK.js"></script>
     
     <script>
-        // Zoho'dan gelen müşteri bilgileri
-        let zohoCustomerData = null;
-        
-        // Zoho Embedded App başlatma
-        function initZoho() {
-            console.log('🚀 initZoho() çağrıldı');
-            console.log('🔍 ZOHO typeof:', typeof ZOHO);
-            console.log('🔍 ZOHO === undefined:', typeof ZOHO === 'undefined');
-            
-            // Zoho widget içinde değilsek (normal tarayıcıda açılmışsa) Zoho'yu başlatma
-            if (typeof ZOHO === 'undefined') {
-                // Sadece 3 kez dene, sonra vazgeç
-                if (!window.zohoRetryCount) window.zohoRetryCount = 0;
-                window.zohoRetryCount++;
-                
-                if (window.zohoRetryCount < 3) {
-                    console.log('⏳ ZOHO yükleniyor... (deneme ' + window.zohoRetryCount + '/3)');
-                    setTimeout(initZoho, 2000);
-                } else {
-                    console.log('⚠️ Zoho widget içinde değil veya ZOHO SDK yüklenemedi, Zoho SDK atlanıyor');
-                    console.log('💡 Bu sayfa Zoho widget iframe içinde açılmamış olabilir');
-                }
+        // Zoho içinden current Lead kaydını al
+        ZOHO.embeddedApp.on("PageLoad", function(data) {
+            console.log("🔵 Zoho PageLoad data:", data);
+
+            // Leads modülündeyiz; o lead'in ID'sini al
+            var recordId = data.EntityId && data.EntityId[0];
+            var module = data.Entity;
+
+            if (!recordId) {
+                console.warn("⚠️ RecordID yok, Zoho lead datası çekilemedi");
                 return;
             }
-            
-            console.log('✅ ZOHO yüklendi, başlatılıyor...');
-            console.log('🔍 ZOHO.embeddedApp:', typeof ZOHO.embeddedApp);
-            
-            try {
-                console.log("🔵 Zoho embeddedApp.on('PageLoad') listener eklendi");
-                ZOHO.embeddedApp.on("PageLoad", async function(data) {
-                    console.log("📋 Zoho PageLoad event tetiklendi:", data);
-                    
-                    if (data && data.Entity && data.EntityId) {
-                        console.log("✅ Zoho Entity ve EntityId bulundu:", data.Entity, data.EntityId);
-                        try {
-                            console.log("📞 Zoho CRM API çağrısı yapılıyor...");
-                            // Zoho CRM'den müşteri bilgilerini al
-                            const res = await ZOHO.CRM.API.getRecord({
-                                Entity: data.Entity,
-                                RecordID: data.EntityId
-                            });
-                            
-                            console.log("✅ Zoho CRM Data alındı:", res);
-                            
-                            if (res && res.data && res.data.length > 0) {
-                                const r = res.data[0];
-                                zohoCustomerData = {
-                                    name: (r.First_Name || "") + " " + (r.Last_Name || "") || r.Full_Name || "",
-                                    phone: r.Phone || r.Mobile || "",
-                                    email: r.Email || "",
-                                    id: r.Id,
-                                    entity: data.Entity
-                                };
-                                
-                                // window objesine ekle ki app.js'den erişilebilsin
-                                window.zohoCustomerData = zohoCustomerData;
-                                
-                                console.log("✅ Zoho Müşteri Bilgisi window'a eklendi:", zohoCustomerData);
-                                console.log("🔍 window.zohoCustomerData kontrolü:", window.zohoCustomerData);
-                                console.log("🔍 window.zohoCustomerData.phone:", window.zohoCustomerData?.phone);
-                                console.log("🔍 window.zohoCustomerData.email:", window.zohoCustomerData?.email);
-                                
-                                // UI'da müşteri bilgisini göster (eğer conversation seçilmişse)
-                                updateCustomerInfoInUI();
-                                
-                                // Lead bilgisi yüklendiğini bildir (app.js'de filtreleme yapılacak)
-                                // ÖNEMLİ: app.js yüklenene kadar event'i tekrar tekrar gönder
-                                function dispatchZohoEvent() {
-                                    if (typeof window !== 'undefined' && window.zohoCustomerData) {
-                                        console.log('📤 Zoho lead data event dispatch ediliyor...');
-                                        const event = new CustomEvent('zohoLeadDataLoaded', { 
-                                            detail: window.zohoCustomerData 
-                                        });
-                                        window.dispatchEvent(event);
-                                        // Ayrıca document'e de dispatch et (bazı durumlarda gerekli)
-                                        document.dispatchEvent(event);
-                                        console.log('✅ Zoho lead data event dispatch edildi');
-                                    }
-                                }
-                                
-                                // Hemen dispatch et
-                                dispatchZohoEvent();
-                                
-                                // app.js yüklenene kadar tekrar tekrar dene (test modundaki gibi)
-                                setTimeout(dispatchZohoEvent, 500);
-                                setTimeout(dispatchZohoEvent, 1000);
-                                setTimeout(dispatchZohoEvent, 2000);
-                                setTimeout(dispatchZohoEvent, 3000);
-                                setTimeout(dispatchZohoEvent, 4000);
-                                setTimeout(dispatchZohoEvent, 5000);
-                                
-                                // Conversation'lar yüklendikten sonra eşleştirme yap
-                                // Önce mevcut conversation'ları kontrol et
-                                setTimeout(() => {
-                                    findAndSelectMatchingConversation();
-                                }, 2000); // 2 saniye bekle, conversation'lar yüklensin
-                                
-                                // Conversation yüklendiğinde de kontrol et
-                                if (typeof window !== 'undefined') {
-                                    window.addEventListener('conversationsLoaded', findAndSelectMatchingConversation);
-                                }
-                            }
-                        } catch (error) {
-                            console.error("❌ Zoho CRM API Error:", error);
-                        }
-                    } else {
-                        console.log("Zoho Entity veya EntityId bulunamadı");
+
+            // Lead kaydını Zoho API'den çek
+            ZOHO.CRM.API.getRecord({
+                Entity: module || "Leads",
+                RecordID: recordId
+            }).then(function(resp) {
+                try {
+                    console.log("📋 Zoho getRecord response:", resp);
+                    if (!resp || !resp.data || !resp.data[0]) {
+                        console.warn("⚠️ Zoho getRecord boş geldi");
+                        return;
                     }
-                });
-                
-                // Zoho Embedded App'i başlat
-                ZOHO.embeddedApp.init();
-                console.log("✅ Zoho Embedded App başlatıldı");
-                
-                // PageLoad event'i tetiklenmeyebilir, manuel olarak mevcut sayfa bilgilerini al
-                // Bu, widget iframe içinde açıldığında PageLoad event'i kaçırırsa yedek olarak çalışır
-                setTimeout(async () => {
-                    try {
-                        console.log("🔄 Manuel olarak mevcut sayfa bilgileri alınıyor...");
-                        const currentPage = await ZOHO.CRM.UI.getPageInfo();
-                        console.log("📋 Mevcut sayfa bilgileri:", currentPage);
-                        
-                        if (currentPage && currentPage.Entity && currentPage.EntityId) {
-                            console.log("✅ Manuel olarak Entity ve EntityId bulundu:", currentPage.Entity, currentPage.EntityId);
-                            // PageLoad event'ini manuel olarak tetikle
-                            const pageLoadData = {
-                                Entity: currentPage.Entity,
-                                EntityId: currentPage.EntityId
-                            };
-                            console.log("🔄 PageLoad event'i manuel olarak tetikleniyor...");
-                            // PageLoad handler'ını manuel olarak çağır
-                            const event = { Entity: currentPage.Entity, EntityId: currentPage.EntityId };
-                            // Handler'ı direkt çağıramayız, bu yüzden aynı mantığı tekrar çalıştır
-                            try {
-                                console.log("📞 Manuel Zoho CRM API çağrısı yapılıyor...");
-                                const res = await ZOHO.CRM.API.getRecord({
-                                    Entity: currentPage.Entity,
-                                    RecordID: currentPage.EntityId
-                                });
-                                
-                                console.log("✅ Manuel Zoho CRM Data alındı:", res);
-                                
-                                if (res && res.data && res.data.length > 0) {
-                                    const r = res.data[0];
-                                    zohoCustomerData = {
-                                        name: (r.First_Name || "") + " " + (r.Last_Name || "") || r.Full_Name || "",
-                                        phone: r.Phone || r.Mobile || "",
-                                        email: r.Email || "",
-                                        id: r.Id,
-                                        entity: currentPage.Entity
-                                    };
-                                    
-                                    window.zohoCustomerData = zohoCustomerData;
-                                    console.log("✅ Manuel olarak Zoho Müşteri Bilgisi window'a eklendi:", zohoCustomerData);
-                                    
-                                    // Event dispatch et
-                                    function dispatchZohoEvent() {
-                                        if (typeof window !== 'undefined' && window.zohoCustomerData) {
-                                            console.log('📤 Manuel Zoho lead data event dispatch ediliyor...');
-                                            const event = new CustomEvent('zohoLeadDataLoaded', { 
-                                                detail: window.zohoCustomerData 
-                                            });
-                                            window.dispatchEvent(event);
-                                            document.dispatchEvent(event);
-                                            console.log('✅ Manuel Zoho lead data event dispatch edildi');
-                                        }
-                                    }
-                                    
-                                    dispatchZohoEvent();
-                                    setTimeout(dispatchZohoEvent, 500);
-                                    setTimeout(dispatchZohoEvent, 1000);
-                                    setTimeout(dispatchZohoEvent, 2000);
-                                    setTimeout(dispatchZohoEvent, 3000);
-                                }
-                            } catch (error) {
-                                console.error("❌ Manuel Zoho CRM API Error:", error);
-                            }
-                        } else {
-                            console.log("⚠️ Manuel sayfa bilgisi alınamadı veya Entity/EntityId yok");
-                        }
-                    } catch (error) {
-                        console.error("❌ Manuel sayfa bilgisi alma hatası:", error);
-                    }
-                }, 2000); // 2 saniye bekle, init tamamlansın
-            } catch (error) {
-                console.error("❌ Zoho başlatma hatası:", error);
-            }
-        }
-        
-        // Zoho'dan gelen müşteri bilgisini UI'da göster
-        function updateCustomerInfoInUI() {
-            if (!zohoCustomerData) return;
-            console.log("📋 Müşteri bilgisi UI'da güncellenecek:", zohoCustomerData);
-        }
-        
-        // Zoho müşteri bilgisi ile eşleşen conversation'ı bul ve seç
-        function findAndSelectMatchingConversation() {
-            // State ve conversations yüklenene kadar bekle
-            if (typeof state === 'undefined' || !state.conversations || state.conversations.length === 0) {
-                console.log('⏳ Conversation\'lar henüz yüklenmedi, bekleniyor...');
-                return;
-            }
-            
-            if (!window.zohoCustomerData) {
-                console.log('⏳ Zoho müşteri bilgisi henüz yüklenmedi');
-                return;
-            }
-            
-            const zohoData = window.zohoCustomerData;
-            console.log('🔍 Zoho müşteri bilgisi ile eşleştirme yapılıyor:', zohoData);
-            console.log('📋 Mevcut conversation sayısı:', state.conversations.length);
-            
-            const matchingConv = state.conversations.find(conv => {
-                // Telefon numarası eşleşmesi
-                if (zohoData.phone && conv.phoneNumber) {
-                    const zohoPhone = zohoData.phone.replace(/\D/g, '');
-                    const convPhone = conv.phoneNumber.replace(/\D/g, '');
-                    if (zohoPhone && convPhone && (convPhone.includes(zohoPhone) || zohoPhone.includes(convPhone))) {
-                        console.log('✅ Telefon numarası eşleşti:', zohoPhone, '==', convPhone);
-                        return true;
-                    }
+
+                    var rec = resp.data[0];
+
+                    // Burada alan adlarını kendi CRM alanlarına göre güncelle
+                    var zohoCustomerData = {
+                        id: rec.id,
+                        name: rec.Full_Name || rec.Full_Name__s || rec.Company || "",
+                        phone: rec.Phone || rec.Mobile || rec.Mobile_Phone || "",
+                        email: rec.Email || ""
+                    };
+
+                    // 1) Global değişken olarak widget içinde sakla
+                    window.zohoCustomerData = zohoCustomerData;
+                    console.log("✅ window.zohoCustomerData set edildi:", zohoCustomerData);
+
+                    // 2) app.js içindeki listener'ların yakalaması için event fırlat
+                    var event = new CustomEvent("zohoLeadDataLoaded", { detail: zohoCustomerData });
+                    window.dispatchEvent(event);
+                    document.dispatchEvent(event);
+                    console.log("✅ 'zohoLeadDataLoaded' event dispatch edildi");
+                } catch (e) {
+                    console.error("❌ Zoho lead işleme hatası:", e);
                 }
-                
-                // Email eşleşmesi
-                if (zohoData.email && conv.email) {
-                    if (zohoData.email.toLowerCase() === conv.email.toLowerCase()) {
-                        console.log('✅ Email eşleşti:', zohoData.email, '==', conv.email);
-                        return true;
-                    }
-                }
-                
-                return false;
             });
-            
-            if (matchingConv) {
-                console.log("✅ Eşleşen conversation bulundu:", matchingConv);
-                // selectConversation fonksiyonu app.js'de tanımlı
-                if (typeof selectConversation === 'function') {
-                    selectConversation(matchingConv);
-                } else {
-                    console.warn('⚠️ selectConversation fonksiyonu bulunamadı');
-                }
-            } else {
-                console.log('ℹ️ Eşleşen conversation bulunamadı');
-            }
-        }
+        });
+
+        ZOHO.embeddedApp.init();
         
         // TEST MODU: URL parametrelerinden test verisi al
         // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
@@ -460,46 +264,10 @@
             console.log('📄 Sayfa zaten yüklü - Test modu kontrol ediliyor...');
             checkTestMode();
         }
-        
-        // Zoho'yu başlat (yüklendikten sonra)
-        window.addEventListener('load', function() {
-            console.log('📄 window.load event - Zoho widget sayfası yüklendi');
-            console.log('🔍 ZOHO kontrolü:', typeof ZOHO !== 'undefined' ? 'VAR' : 'YOK');
-            console.log('🔍 window.location:', window.location.href);
-            
-            // Test modunu kontrol et (eğer daha önce set edilmediyse)
-            if (!window.zohoCustomerData) {
-                if (checkTestMode()) {
-                    console.log('🧪 TEST MODU aktif - Zoho SDK atlanıyor');
-                    return; // Test modunda Zoho SDK'yı başlatma
-                }
-            }
-            
-            setTimeout(() => {
-                console.log('⏰ initZoho çağrılıyor...');
-                initZoho();
-            }, 1000);
-        });
-        
-        // Eğer sayfa zaten yüklüyse, hemen çalıştır (test modu değilse)
-        if (document.readyState === 'complete') {
-            console.log('📄 Sayfa zaten yüklü (complete), initZoho hemen çağrılıyor...');
-            // Test modunu tekrar kontrol et (eğer daha önce set edilmediyse)
-            if (!window.zohoCustomerData) {
-                if (checkTestMode()) {
-                    console.log('🧪 TEST MODU aktif - initZoho atlanıyor');
-                    return;
-                }
-            }
-            setTimeout(() => {
-                console.log('⏰ initZoho çağrılıyor (sayfa zaten yüklü)...');
-                initZoho();
-            }, 1000);
-        }
     </script>
     
     <!-- Ana uygulama JavaScript'i -->
-    <script src="app.js?v=46"></script>
+    <script src="app.js?v=47"></script>
     <script>
         // Basit sidebar kontrol fonksiyonları (Widget için) - EN ÜSTTE TANIMLA
         window.openSidebarNow = function() {

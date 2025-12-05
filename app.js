@@ -412,24 +412,25 @@ async function loadConversations(silent = false) {
         const result = await apiRequest(url, 'GET');
         const conversations = (result && result.conversations) ? result.conversations : [];
 
-        // Tüm konuşmaları sakla
+        // Debug: ilk birkaç konuşmayı logla
+        console.log('📊 SleekFlow API dönüşü (ilk 5):',
+            conversations.slice(0, 5).map(c => ({
+                id: c.id,
+                name: c.contactName,
+                phone: c.phoneNumber,
+                email: c.email,
+                channel: c.channel || c.rawChannel
+            }))
+        );
+
+        // Tüm konuşmaları kaydet
         state.allConversations = conversations;
 
-        // Zoho lead data varsa, o lead'e göre filtrele
-        const zohoData = (typeof window !== 'undefined' && window.zohoCustomerData) 
-            ? window.zohoCustomerData 
-            : null;
-        
-        const hasZohoData = !!(zohoData && (zohoData.phone || zohoData.email));
-
-        if (hasZohoData && !state.showAllConversations) {
-            // Zoho lead'e göre filtrele
-            state.filterByZohoLead = true;
+        // Eğer şu anda lead filtresi açıksa → filtrele
+        if (state.filterByZohoLead && window.zohoCustomerData) {
             state.conversations = filterConversationsByZohoLead(conversations);
-            console.log(`✅ Zoho lead'e göre filtrelendi: ${state.conversations.length}/${conversations.length}`);
         } else {
-            // Tüm konuşmaları göster
-            state.filterByZohoLead = false;
+            // Normalde tüm konuşmalar
             state.conversations = conversations;
         }
 
@@ -438,11 +439,6 @@ async function loadConversations(silent = false) {
         updateLeadFilterInfo();
     } catch (error) {
         const errorMsg = error.message || 'Bilinmeyen hata';
-
-        if (errorMsg.includes('SleekFlow sunucu hatası')) {
-            console.warn('⚠️ SleekFlow 500 (Internal Server Error) verdi, mevcut konuşma listesi korunuyor.');
-            return;
-        }
 
         if (!silent) {
             console.error('❌ Konuşmalar yüklenemedi:', errorMsg);
