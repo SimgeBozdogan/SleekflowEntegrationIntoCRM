@@ -420,8 +420,10 @@ async function loadConversations(silent = false) {
             state.allConversations = result.conversations;
             
             // Zoho lead bilgisi varsa ve kullanıcı "Tüm konuşmaları göster" dememişse, OTOMATIK filtrele
-            const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData && 
-                                window.zohoCustomerData.phone && window.zohoCustomerData.email;
+            // Telefon VEYA email varsa yeterli (ikisi birden gerekmez)
+            const hasZohoData = typeof window !== 'undefined' && 
+                                window.zohoCustomerData && 
+                                (window.zohoCustomerData.phone || window.zohoCustomerData.email);
             
             console.log('🔍 loadConversations - Zoho data kontrolü:', {
                 hasZohoData,
@@ -466,6 +468,7 @@ async function loadConversations(silent = false) {
             
             console.log(`✅ ${result.conversations.length} konuşma yüklendi`);
             renderConversations();
+            updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
             
             // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
             setTimeout(() => {
@@ -627,6 +630,7 @@ function updateChatEmptyView() {
                         state.conversations = [...state.allConversations]; // Copy array
                     }
                     renderConversations();
+                    updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
                     updateChatEmptyView(); // Chat view'ı güncelle
                     console.log('✅ Tüm konuşmalar gösteriliyor - Filtre kalıcı olarak kapatıldı');
                     
@@ -690,6 +694,7 @@ function renderConversations() {
                                 state.conversations = [...state.allConversations]; // Copy array
                             }
                             renderConversations();
+                            updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
                             updateChatEmptyView(); // Chat view'ı güncelle
                             console.log('✅ Tüm konuşmalar gösteriliyor - Filtre kalıcı olarak kapatıldı');
                             
@@ -762,6 +767,59 @@ function renderConversations() {
     
     // Chat view'ı güncelle
     updateChatEmptyView();
+    updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
+}
+
+// Lead filter info bar'ı güncelle
+function updateLeadFilterInfo() {
+    const infoEl = document.getElementById('leadFilterInfo');
+    if (!infoEl) return;
+    
+    const hasZohoData = typeof window !== 'undefined' && window.zohoCustomerData &&
+                        (window.zohoCustomerData.phone || window.zohoCustomerData.email);
+    
+    // Eğer Zoho datası yoksa ya da tüm konuşmalar modundayız => barı gizle
+    if (!hasZohoData || state.showAllConversations || !state.filterByZohoLead) {
+        infoEl.style.display = 'none';
+        infoEl.innerHTML = '';
+        return;
+    }
+    
+    const zoho = window.zohoCustomerData;
+    const leadLabel = zoho.name || zoho.phone || zoho.email || 'Bu lead';
+    
+    infoEl.style.display = 'flex';
+    infoEl.innerHTML = `
+        <span>
+            Sadece <strong>${escapeHtml(leadLabel)}</strong> için konuşmalar gösteriliyor.
+        </span>
+        <button class="btn btn-secondary" id="showAllConversationsInline">
+            Tüm konuşmaları göster
+        </button>
+    `;
+    
+    setTimeout(() => {
+        const btn = document.getElementById('showAllConversationsInline');
+        if (!btn) return;
+        btn.onclick = function() {
+            console.log('🔘 Inline "Tüm konuşmaları göster" butonuna tıklandı');
+            state.showAllConversations = true;
+            state.filterByZohoLead = false;
+            if (state.allConversations && state.allConversations.length > 0) {
+                state.conversations = [...state.allConversations];
+            }
+            renderConversations();
+            updateChatEmptyView();
+            updateLeadFilterInfo(); // Bar'ı güncelle
+            console.log('✅ Tüm konuşmalar gösteriliyor - Filtre kalıcı olarak kapatıldı');
+            
+            // Polling'i durdur ve yeniden başlat (filtreleme olmadan)
+            if (messagePollInterval) {
+                clearInterval(messagePollInterval);
+            }
+            startMessagePolling();
+        };
+    }, 50);
 }
 
 function getInitials(name) {
@@ -1461,6 +1519,7 @@ window.addEventListener('message', handleZohoCallback);
             state.filterByZohoLead = true;
             state.conversations = filterConversationsByZohoLead(state.allConversations);
             renderConversations();
+            updateLeadFilterInfo(); // Lead filter info bar'ı güncelle
             
             // Chat view'ı güncelle - biraz gecikme ile (DOM güncellensin)
             setTimeout(() => {

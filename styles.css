@@ -279,6 +279,23 @@ body {
     background: white;
 }
 
+.lead-filter-info {
+    padding: 6px 10px;
+    font-size: 12px;
+    background: rgba(59,130,246,0.08);
+    border-bottom: 1px solid rgba(59,130,246,0.2);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.lead-filter-info button {
+    padding: 4px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
 .conversations-header h2 {
     font-size: 0.875rem;
     font-weight: 600;
