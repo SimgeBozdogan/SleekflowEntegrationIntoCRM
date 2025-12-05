@@ -176,18 +176,21 @@
             console.log('✅ ZOHO yüklendi, başlatılıyor...');
             
             try {
+                console.log("🔵 Zoho embeddedApp.on('PageLoad') listener eklendi");
                 ZOHO.embeddedApp.on("PageLoad", async function(data) {
-                    console.log("Zoho PageLoad:", data);
+                    console.log("📋 Zoho PageLoad event tetiklendi:", data);
                     
                     if (data && data.Entity && data.EntityId) {
+                        console.log("✅ Zoho Entity ve EntityId bulundu:", data.Entity, data.EntityId);
                         try {
+                            console.log("📞 Zoho CRM API çağrısı yapılıyor...");
                             // Zoho CRM'den müşteri bilgilerini al
                             const res = await ZOHO.CRM.API.getRecord({
                                 Entity: data.Entity,
                                 RecordID: data.EntityId
                             });
                             
-                            console.log("Zoho CRM Data:", res);
+                            console.log("✅ Zoho CRM Data alındı:", res);
                             
                             if (res && res.data && res.data.length > 0) {
                                 const r = res.data[0];
@@ -202,7 +205,10 @@
                                 // window objesine ekle ki app.js'den erişilebilsin
                                 window.zohoCustomerData = zohoCustomerData;
                                 
-                                console.log("✅ Zoho Müşteri Bilgisi:", zohoCustomerData);
+                                console.log("✅ Zoho Müşteri Bilgisi window'a eklendi:", zohoCustomerData);
+                                console.log("🔍 window.zohoCustomerData kontrolü:", window.zohoCustomerData);
+                                console.log("🔍 window.zohoCustomerData.phone:", window.zohoCustomerData?.phone);
+                                console.log("🔍 window.zohoCustomerData.email:", window.zohoCustomerData?.email);
                                 
                                 // UI'da müşteri bilgisini göster (eğer conversation seçilmişse)
                                 updateCustomerInfoInUI();
