@@ -445,20 +445,31 @@ async function loadConversations(silent = false) {
             }
         }
 
-        // 🔥 TEK ÇÖZÜM: Eğer kullanıcı "tüm konuşmaları göster" modunda DEĞİLSE → Zoho lead'e göre filtrele
+        // 🔥 OTOMATİK FİLTRELEME: Eğer kullanıcı "tüm konuşmaları göster" modunda DEĞİLSE → Zoho lead'e göre filtrele
+        // ÖNEMLİ: showAllConversations başlangıçta false olmalı, sadece kullanıcı butona basarsa true olur
         if (!state.showAllConversations && typeof window !== 'undefined' && zohoData) {
             const zName = normalizeName(zohoData.name || zohoData.Full_Name || '');
-            if (zName) {
+            if (zName && zName.trim()) {
+                // Filtreleme yap
                 state.conversations = filterConversationsByZohoLead(all);
                 state.filterByZohoLead = true;
-                console.log(`📊 Filtreleme: ${state.conversations.length}/${all.length} konuşma eşleşti (Lead: ${zohoData.name || zohoData.Full_Name})`);
+                console.log(`📊 ✅ OTOMATİK FİLTRELEME: ${state.conversations.length}/${all.length} konuşma eşleşti (Lead: ${zohoData.name || zohoData.Full_Name})`);
+                console.log(`   Filtrelenmiş konuşmalar:`, state.conversations.map(c => c.contactName).slice(0, 5));
             } else {
+                // İsim yok, filtreleme yapma
                 state.conversations = all;
                 state.filterByZohoLead = false;
+                console.log('⚠️ Zoho lead ismi yok, filtreleme yapılmadı');
             }
         } else {
+            // showAllConversations = true ise veya Zoho data yoksa, tüm konuşmaları göster
             state.conversations = all;
             state.filterByZohoLead = false;
+            if (state.showAllConversations) {
+                console.log('ℹ️ Tüm konuşmalar modu aktif, filtreleme yapılmadı');
+            } else {
+                console.log('ℹ️ Zoho data yok, tüm konuşmalar gösteriliyor');
+            }
         }
 
         renderConversations();
@@ -1501,9 +1512,27 @@ document.addEventListener('DOMContentLoaded', () => {
             // Start message polling after connection
             if (state.sleekflow.connected) {
                 startMessagePolling();
+                
                 // 🔥 OTOMATİK FİLTRELEME: Zoho lead varsa otomatik filtreleme yap
-                if (typeof window !== 'undefined' && window.zohoCustomerData) {
+                // ÖNEMLİ: localStorage'dan da kontrol et (event henüz gelmemiş olabilir)
+                let zohoData = window.zohoCustomerData;
+                if (!zohoData) {
+                    try {
+                        const stored = localStorage.getItem('zohoCustomerData');
+                        if (stored) {
+                            zohoData = JSON.parse(stored);
+                            window.zohoCustomerData = zohoData;
+                            console.log('📦 Auto-connect: localStorage\'dan Zoho data yüklendi:', zohoData);
+                        }
+                    } catch (err) {
+                        console.warn('⚠️ localStorage okunamadı:', err);
+                    }
+                }
+                
+                if (zohoData && (zohoData.name || zohoData.Full_Name)) {
                     console.log('✅ Auto-connect sonrası Zoho lead ile otomatik filtreleme yapılıyor...');
+                    console.log('   Lead:', zohoData.name || zohoData.Full_Name);
+                    // KRİTİK: showAllConversations = false yap (otomatik filtreleme için)
                     state.showAllConversations = false;
                     state.filterByZohoLead = true;
                     loadConversations(false); // Konuşmaları yükle ve filtrele
@@ -1642,6 +1671,14 @@ window.addEventListener('message', handleZohoCallback);
         // Lead data'yı güncelle
         window.zohoCustomerData = event.detail;
         lastZohoLeadId = newLeadId;
+        
+        // 🔥 KRİTİK: localStorage'a kaydet (sayfa yenilendiğinde veya loadConversations erken çağrıldığında kullanılacak)
+        try {
+            localStorage.setItem('zohoCustomerData', JSON.stringify(event.detail));
+            console.log('💾 Zoho lead data localStorage\'a kaydedildi');
+        } catch (err) {
+            console.warn('⚠️ localStorage\'a kaydedilemedi:', err);
+        }
         
         // Filtreleme durumunu sıfırla
         resetFilteringState();
