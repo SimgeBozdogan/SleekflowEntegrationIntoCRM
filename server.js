@@ -1325,6 +1325,18 @@ app.get('/ping', (req, res) => {
 // ============================================
 // SERVER START
 // ============================================
+// ============================================
+// ZOHO LEAD BİLGİSİ (Mock - Test)
+// ============================================
+app.get('/api/zoho/lead/:recordId', (req, res) => {
+    const { recordId } = req.params;
+    const mockLeads = {
+        '3519633000086711022': { name: 'Adil Yaman', id: recordId }
+    };
+    const lead = mockLeads[recordId] || { name: 'Unknown', id: recordId };
+    res.json({ success: true, data: lead });
+});
+
 const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Server çalışıyor: http://0.0.0.0:${PORT}`);
     console.log(`📱 Sleekflow-Zoho Entegrasyon Arayüzü hazır!`);

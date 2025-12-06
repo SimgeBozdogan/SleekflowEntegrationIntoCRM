@@ -632,27 +632,38 @@
         // 🔥 TITLE'DAN LEAD ADINI AL VE window.zohoCustomerData'YA KAYDET
         function setLeadNameFromTitle() {
             try {
-                // Parent page'deki Zoho title'ını oku (iframe'deyiz çünkü parent var)
+                // Yöntem 1: URL'den recordId'yi al
+                const url = window.location.href;
+                const recordMatch = url.match(/\/(\d+)$/);
+                if (recordMatch) {
+                    const recordId = recordMatch[1];
+                    console.log("📌 URL'den recordId bulundu:", recordId);
+                    
+                    // Backend API'ye sor
+                    fetch(`/api/zoho/lead/${recordId}`)
+                        .then(r => r.json())
+                        .then(data => {
+                            if (data.success && data.data.name) {
+                                window.zohoCustomerData = { name: data.data.name };
+                                console.log("✅ API'den window.zohoCustomerData set:", window.zohoCustomerData);
+                            }
+                        })
+                        .catch(e => console.log("⚠️ API hatası:", e));
+                }
+                
+                // Yöntem 2: Fallback - title'dan oku
                 const titleSource = window.parent ? window.parent.document.title : document.title;
                 const title = titleSource;
-                console.log("📖 Title kaynağı:", title);
-                
                 const match = title.match(/^([^(]+)\s*\(/);
                 if (match && match[1]) {
                     const name = match[1].trim();
-                    window.zohoCustomerData = { name: name };
-                    console.log("✅ window.zohoCustomerData set:", window.zohoCustomerData);
+                    if (!window.zohoCustomerData) {
+                        window.zohoCustomerData = { name: name };
+                        console.log("✅ Title'dan fallback window.zohoCustomerData:", window.zohoCustomerData);
+                    }
                 }
             } catch(err) {
-                console.log("⚠️ Parent title erişilemedi, fallback kullanılıyor");
-                // Fallback: kendi title'ımızı kullan
-                const title = document.title;
-                const match = title.match(/^([^(]+)\s*\(/);
-                if (match && match[1]) {
-                    const name = match[1].trim();
-                    window.zohoCustomerData = { name: name };
-                    console.log("✅ Fallback - window.zohoCustomerData set:", window.zohoCustomerData);
-                }
+                console.log("⚠️ Error:", err);
             }
         }
         
