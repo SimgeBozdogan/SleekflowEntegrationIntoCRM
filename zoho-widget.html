@@ -187,10 +187,16 @@
             }
 
             // 2) Lead kaydını çek - Zoho JS SDK büyük harf bekliyor
-            const leadResp = await ZOHO.CRM.API.getRecord({
-                Entity: module,
-                RecordID: recordId
-            });
+            let leadResp;
+            try {
+                leadResp = await ZOHO.CRM.API.getRecord({
+                    Entity: module,
+                    RecordID: recordId
+                });
+            } catch(err) {
+                console.error("❌ Zoho API hatası:", err);
+                return;
+            }
 
             console.log("📥 Zoho lead response:", leadResp);
 
@@ -214,8 +220,10 @@
 
             console.log("📌 Gönderilen zohoCustomerData:", payload);
 
-            // 4) UI tarafı için event gönder
+            // 4) UI tarafı için event gönder - localStorage'a da koy (iframe içinde erişim için)
             window.zohoCustomerData = payload;
+            localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
+            console.log("✅ localStorage'a kaydedildi:", payload);
 
             const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
             window.dispatchEvent(evt);

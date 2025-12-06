@@ -430,13 +430,28 @@ async function loadConversations(silent = false) {
 
         state.allConversations = all;
 
+        // localStorage'dan Zoho data'yı oku (iframe içinde gerekebilir)
+        let zohoData = window.zohoCustomerData;
+        if (!zohoData) {
+            try {
+                const stored = localStorage.getItem('zohoCustomerData');
+                if (stored) {
+                    zohoData = JSON.parse(stored);
+                    window.zohoCustomerData = zohoData;
+                    console.log('📦 localStorage\'dan Zoho data yüklendi:', zohoData);
+                }
+            } catch (err) {
+                console.warn('⚠️ localStorage okunamadı:', err);
+            }
+        }
+
         // 🔥 TEK ÇÖZÜM: Eğer kullanıcı "tüm konuşmaları göster" modunda DEĞİLSE → Zoho lead'e göre filtrele
-        if (!state.showAllConversations && typeof window !== 'undefined' && window.zohoCustomerData) {
-            const zName = normalizeName(window.zohoCustomerData.name || window.zohoCustomerData.Full_Name || '');
+        if (!state.showAllConversations && typeof window !== 'undefined' && zohoData) {
+            const zName = normalizeName(zohoData.name || zohoData.Full_Name || '');
             if (zName) {
                 state.conversations = filterConversationsByZohoLead(all);
                 state.filterByZohoLead = true;
-                console.log(`📊 Filtreleme: ${state.conversations.length}/${all.length} konuşma eşleşti (Lead: ${window.zohoCustomerData.name || window.zohoCustomerData.Full_Name})`);
+                console.log(`📊 Filtreleme: ${state.conversations.length}/${all.length} konuşma eşleşti (Lead: ${zohoData.name || zohoData.Full_Name})`);
             } else {
                 state.conversations = all;
                 state.filterByZohoLead = false;
@@ -470,12 +485,26 @@ async function loadConversations(silent = false) {
 
 // Zoho lead bilgisine göre konuşmaları filtrele (İSİM BAZLI - BASİT ARAMA)
 function filterConversationsByZohoLead(conversations) {
-    if (!window.zohoCustomerData) {
+    // localStorage'dan Zoho data'yı oku
+    let zohoData = window.zohoCustomerData;
+    if (!zohoData) {
+        try {
+            const stored = localStorage.getItem('zohoCustomerData');
+            if (stored) {
+                zohoData = JSON.parse(stored);
+                console.log('📦 filterConversationsByZohoLead: localStorage\'dan Zoho data yüklendi');
+            }
+        } catch (err) {
+            console.warn('⚠️ localStorage okunamadı');
+        }
+    }
+
+    if (!zohoData) {
         console.log('⚠️ filterConversationsByZohoLead: Zoho customer data yok');
         return conversations;
     }
 
-    const zoho = window.zohoCustomerData;
+    const zoho = zohoData;
     const zohoNameRaw = zoho.name || zoho.Full_Name || '';
 
     if (!zohoNameRaw || !zohoNameRaw.trim()) {
@@ -694,10 +723,23 @@ function renderConversations() {
         `;
     }
 
+    // localStorage'dan Zoho data'yı oku (iframe içinde gerekebilir)
+    let zohoData = window.zohoCustomerData;
+    if (!zohoData) {
+        try {
+            const stored = localStorage.getItem('zohoCustomerData');
+            if (stored) {
+                zohoData = JSON.parse(stored);
+            }
+        } catch (err) {
+            // Silent fail
+        }
+    }
+
     // 🔥 BUTON HER ZAMAN en altta görünür (Zoho data olsun olmasın)
     const hasZohoData = typeof window !== 'undefined' && 
-                        window.zohoCustomerData && 
-                        (window.zohoCustomerData.name || window.zohoCustomerData.Full_Name);
+                        zohoData && 
+                        (zohoData.name || zohoData.Full_Name);
     
     // HER ZAMAN buton göster
     const btn = document.createElement('button');
@@ -720,7 +762,7 @@ function renderConversations() {
             console.log('🔘 Sol panel: "Sadece Bu Lead\'in Konuşmalarını Göster" butonuna tıklandı');
             state.showAllConversations = false;
             state.filterByZohoLead = true;
-            if (window.zohoCustomerData && state.allConversations) {
+            if (zohoData && state.allConversations) {
                 state.conversations = filterConversationsByZohoLead(state.allConversations);
             }
             renderConversations();
@@ -746,16 +788,28 @@ function updateLeadFilterInfo() {
     const infoEl = document.getElementById('leadFilterInfo');
     if (!infoEl) return;
     
-    // Sadece window.zohoCustomerData kullan (CORS hatası nedeniyle parent/top erişimi yok)
+    // localStorage'dan Zoho data'yı oku (iframe içinde gerekebilir)
+    let zohoData = window.zohoCustomerData;
+    if (!zohoData) {
+        try {
+            const stored = localStorage.getItem('zohoCustomerData');
+            if (stored) {
+                zohoData = JSON.parse(stored);
+            }
+        } catch (err) {
+            // Silent fail
+        }
+    }
+
     // İSİM + TELEFON + EMAIL'den herhangi biri varsa Zoho datası var say
     let hasZohoData =
         typeof window !== 'undefined' &&
-        window.zohoCustomerData &&
+        zohoData &&
         (
-            window.zohoCustomerData.name ||
-            window.zohoCustomerData.Full_Name ||
-            window.zohoCustomerData.phone ||
-            window.zohoCustomerData.email
+            zohoData.name ||
+            zohoData.Full_Name ||
+            zohoData.phone ||
+            zohoData.email
         );
     
     // Eğer Zoho datası yoksa ya da tüm konuşmalar modundayız => barı gizle
@@ -765,8 +819,7 @@ function updateLeadFilterInfo() {
         return;
     }
     
-    const zoho = window.zohoCustomerData;
-    const leadLabel = zoho.name || zoho.Full_Name || zoho.phone || zoho.email || 'Bu lead';
+    const leadLabel = zohoData.name || zohoData.Full_Name || zohoData.phone || zohoData.email || 'Bu lead';
     
     infoEl.style.display = 'flex';
     infoEl.innerHTML = `
@@ -1610,42 +1663,45 @@ window.addEventListener('message', handleZohoCallback);
         document.addEventListener('zohoLeadDataLoaded', handleZohoLeadDataLoaded);
         console.log('✅ Zoho lead data event listener eklendi');
         
-        // Sayfa yüklü olduğunda mevcut Zoho data'yı kontrol et
-        function checkAndFilterExistingZohoData() {
-            if (!state) {
-                console.log('⏳ State henüz hazırlanmıyor...');
-                return;
-            }
-            
-            if (window.zohoCustomerData) {
-                const leadId = window.zohoCustomerData?.id || window.zohoCustomerData?.name;
-                const leadName = window.zohoCustomerData?.name || window.zohoCustomerData?.Full_Name;
-                
-                console.log('✅ Mevcut Zoho data bulundu:', { leadId, leadName });
-                
-                // Lead değişkeni güncelle
-                lastZohoLeadId = leadId;
-                
-                // Filtreleme durumunu sıfırla
-                resetFilteringState();
-                
-                // Filtreleme uygula
-                if (state.allConversations && state.allConversations.length > 0) {
-                    console.log('🔄 Mevcut Zoho data ile filtreleniyor...');
-                    applyZohoLeadFilter();
-                } else if (state.sleekflow.connected) {
-                    console.log('✅ Konuşmalar yükleniyor...');
-                    loadConversations(false);
-                } else {
-                    console.log('⏳ Sleekflow henüz bağlı değil, Sleekflow bağlantısından sonra yüklenecek');
+        // localStorage'dan Zoho data'yı oku (iframe içinde event işe yaramayabilir)
+        function loadZohoDataFromStorage() {
+            try {
+                const stored = localStorage.getItem('zohoCustomerData');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    console.log('📦 localStorage\'dan Zoho data yüklendi:', data);
+                    
+                    // Fake event gönder
+                    handleZohoLeadDataLoaded({ detail: data });
                 }
+            } catch (err) {
+                console.warn('⚠️ localStorage okunamadı:', err);
             }
         }
         
         // Birkaç kez kontrol et
-        setTimeout(checkAndFilterExistingZohoData, 100);
-        setTimeout(checkAndFilterExistingZohoData, 500);
-        setTimeout(checkAndFilterExistingZohoData, 1000);
+        setTimeout(loadZohoDataFromStorage, 100);
+        setTimeout(loadZohoDataFromStorage, 500);
+        setTimeout(loadZohoDataFromStorage, 1000);
+        
+        // 5 saniyede bir kontrol et (lead değişikliklerini fark etmek için)
+        setInterval(function() {
+            try {
+                const stored = localStorage.getItem('zohoCustomerData');
+                if (stored) {
+                    const data = JSON.parse(stored);
+                    const currentId = lastZohoLeadId;
+                    const newId = data?.id || data?.name;
+                    
+                    if (currentId !== newId) {
+                        console.log('🔔 Lead değişti, yeniden yükleniyor...');
+                        handleZohoLeadDataLoaded({ detail: data });
+                    }
+                }
+            } catch (err) {
+                // Silent fail
+            }
+        }, 5000);
     }
 })();
 
