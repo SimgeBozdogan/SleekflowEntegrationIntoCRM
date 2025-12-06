@@ -198,8 +198,55 @@
         console.log("✅ ZOHO nesnesi hazır:", typeof ZOHO);
         
         // ---------------------------------------------------------
-        // 🔥 ZOHO'DAN AKTİF LEAD'İ ALIP app.js'YE GÖNDEREN TEK DOĞRU KOD
+        // 🔥 ZOHO URL'DEN ID ALIP LEAD İSMİNİ TESPİT EDEN KOD
         // ---------------------------------------------------------
+
+        // 🔥 URL'DEN RECORD ID'Yİ AL
+        function getRecordIdFromURL() {
+            try {
+                // Zoho URL formatı: https://crm.zoho.com/crm/[module]/[recordId]
+                const url = window.location.href;
+                console.log("🔍 URL kontrol ediliyor:", url);
+                
+                // Pattern 1: /crm/Leads/[recordId] veya /crm/Contacts/[recordId]
+                const pattern1 = /\/crm\/(Leads|Contacts|Accounts)\/(\d+)/i;
+                const match1 = url.match(pattern1);
+                if (match1 && match1[2]) {
+                    console.log("✅ URL'den Record ID bulundu (Pattern 1):", match1[2]);
+                    return {
+                        recordId: match1[2],
+                        module: match1[1]
+                    };
+                }
+                
+                // Pattern 2: ?id=[recordId] query parameter
+                const urlParams = new URLSearchParams(window.location.search);
+                const idParam = urlParams.get('id');
+                if (idParam) {
+                    console.log("✅ URL'den Record ID bulundu (Pattern 2):", idParam);
+                    return {
+                        recordId: idParam,
+                        module: "Leads" // Default
+                    };
+                }
+                
+                // Pattern 3: Hash'ten al (#recordId)
+                const hash = window.location.hash;
+                if (hash && /^\d+$/.test(hash.substring(1))) {
+                    console.log("✅ URL'den Record ID bulundu (Pattern 3):", hash.substring(1));
+                    return {
+                        recordId: hash.substring(1),
+                        module: "Leads" // Default
+                    };
+                }
+                
+                console.warn("⚠️ URL'den Record ID bulunamadı");
+                return null;
+            } catch (err) {
+                console.error("❌ URL parse hatası:", err);
+                return null;
+            }
+        }
 
         // 🔥 ZOHO LEAD İSMİNİ DOĞRUDAN DOM'DAN OKUYAN YÖNTEM
         function getZohoLeadNameFromDOM() {
@@ -247,7 +294,15 @@
 
             console.log("📌 Başlangıç - Module:", module, "RecordID:", recordId);
 
-            // 1) getRecordId() daha güvenilir
+            // 🔥 ÖNCE URL'DEN ID AL (EN GÜVENİLİR)
+            const urlData = getRecordIdFromURL();
+            if (urlData && urlData.recordId) {
+                recordId = urlData.recordId;
+                module = urlData.module || module;
+                console.log("✅ URL'den Record ID alındı:", recordId, "Module:", module);
+            }
+
+            // 2) getRecordId() API'sini dene (fallback)
             if (!recordId) {
                 try {
                     const rid = await ZOHO.CRM.API.getRecordId();
@@ -262,11 +317,11 @@
             }
 
             if (!recordId) {
-                console.error("❌ Lead ID bulunamadı");
+                console.error("❌ Lead ID bulunamadı (ne URL ne API)");
                 return;
             }
 
-            console.log("✅ Lead ID bulundu:", recordId);
+            console.log("✅ Lead ID bulundu:", recordId, "Module:", module);
 
             // 2a) ÖNCE DOM'dan ismi oku (hızlı yöntem)
             let leadName = getZohoLeadNameFromDOM();
@@ -375,12 +430,78 @@
             return false;
         }
         
+        // 🔥 URL'DEN ID ALIP LEAD İSMİNİ TESPİT EDEN FONKSİYON (HER ZAMAN ÇALIŞSIN)
+        async function loadLeadFromURL() {
+            try {
+                // 1) URL'den ID al
+                const urlData = getRecordIdFromURL();
+                if (!urlData || !urlData.recordId) {
+                    console.log("⚠️ URL'den ID alınamadı, title'dan denenecek");
+                    extractAndSaveLeadNameFromTitle();
+                    return;
+                }
+
+                const recordId = urlData.recordId;
+                const module = urlData.module || "Leads";
+                
+                console.log("✅ URL'den ID alındı:", recordId, "Module:", module);
+
+                // 2) Zoho API'den lead bilgisini çek
+                try {
+                    const leadResp = await ZOHO.CRM.API.getRecord({
+                        Entity: module,
+                        RecordID: recordId
+                    });
+
+                    if (leadResp && leadResp.data && leadResp.data[0]) {
+                        const lead = leadResp.data[0];
+                        const leadName = lead.Full_Name 
+                                || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim()
+                                || lead.Company
+                                || "";
+
+                        if (leadName && leadName.trim()) {
+                            console.log("✅ API'den Lead ismi alındı:", leadName);
+
+                            // 3) Payload oluştur
+                            const payload = {
+                                id: recordId,
+                                name: leadName.trim(),
+                                phone: lead.Phone || lead.Mobile || "",
+                                email: lead.Email || ""
+                            };
+
+                            // 4) Kaydet ve event gönder
+                            window.zohoCustomerData = payload;
+                            localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
+                            console.log("✅ window.zohoCustomerData ve localStorage'a kaydedildi");
+
+                            // 5) Event gönder
+                            const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+                            window.dispatchEvent(evt);
+                            document.dispatchEvent(evt);
+                            console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
+                            return;
+                        }
+                    }
+                } catch (apiErr) {
+                    console.warn("⚠️ API'den lead alınamadı, title'dan denenecek:", apiErr.message);
+                }
+
+                // Fallback: Title'dan al
+                extractAndSaveLeadNameFromTitle();
+            } catch (err) {
+                console.error("❌ loadLeadFromURL hatası:", err);
+                extractAndSaveLeadNameFromTitle();
+            }
+        }
+
         // Hemen çalıştır
-        setTimeout(extractAndSaveLeadNameFromTitle, 500);
+        setTimeout(loadLeadFromURL, 500);
         // Sayfa yüklendiğinde tekrar çalıştır
-        window.addEventListener('load', extractAndSaveLeadNameFromTitle);
-        // Her 2 saniyede bir kontrol et (lead değiştiğinde)
-        setInterval(extractAndSaveLeadNameFromTitle, 2000);
+        window.addEventListener('load', loadLeadFromURL);
+        // Her 3 saniyede bir kontrol et (lead değiştiğinde)
+        setInterval(loadLeadFromURL, 3000);
         
         // TEST MODU: URL parametrelerinden test verisi al
         // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
