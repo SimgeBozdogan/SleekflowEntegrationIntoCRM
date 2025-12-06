@@ -629,12 +629,22 @@
             setupWidgetSearch();
         });
         
-        // 🔥 TITLE'DAN LEAD ADINI AL VE window.zohoCustomerData'YA KAYDET
-        function setLeadNameFromTitle() {
+        // 🔥 URL QUERY PARAMETRES İNDEN LEAD ADINI AL
+        function setLeadNameFromURL() {
             try {
-                // Yöntem 1: URL'den recordId'yi al
+                // URL parametrelerini oku
+                const urlParams = new URLSearchParams(window.location.search);
+                const leadName = urlParams.get('leadName');
+                
+                if (leadName) {
+                    window.zohoCustomerData = { name: decodeURIComponent(leadName) };
+                    console.log("✅ URL'den window.zohoCustomerData set:", window.zohoCustomerData);
+                    return;
+                }
+                
+                // Fallback: window.location.href'den recordId al
                 const url = window.location.href;
-                const recordMatch = url.match(/\/(\d+)$/);
+                const recordMatch = url.match(/leadId=(\d+)/);
                 if (recordMatch) {
                     const recordId = recordMatch[1];
                     console.log("📌 URL'den recordId bulundu:", recordId);
@@ -650,28 +660,16 @@
                         })
                         .catch(e => console.log("⚠️ API hatası:", e));
                 }
-                
-                // Yöntem 2: Fallback - title'dan oku
-                const titleSource = window.parent ? window.parent.document.title : document.title;
-                const title = titleSource;
-                const match = title.match(/^([^(]+)\s*\(/);
-                if (match && match[1]) {
-                    const name = match[1].trim();
-                    if (!window.zohoCustomerData) {
-                        window.zohoCustomerData = { name: name };
-                        console.log("✅ Title'dan fallback window.zohoCustomerData:", window.zohoCustomerData);
-                    }
-                }
             } catch(err) {
                 console.log("⚠️ Error:", err);
             }
         }
         
         // Hemen çalıştır
-        setLeadNameFromTitle();
+        setLeadNameFromURL();
         
-        // Her 2 saniyede kontrol et
-        setInterval(setLeadNameFromTitle, 2000);
+        // Her 3 saniyede kontrol et
+        setInterval(setLeadNameFromURL, 3000);
     </script>
 </body>
 </html>
