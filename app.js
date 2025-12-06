@@ -694,22 +694,29 @@ function renderConversations() {
         `;
     }
 
-    // 🔥 BUTON HER ZAMAN en altta görünür (sadece Zoho data varsa)
+    // 🔥 BUTON HER ZAMAN en altta görünür (Zoho data olsun olmasın)
     const hasZohoData = typeof window !== 'undefined' && 
                         window.zohoCustomerData && 
                         (window.zohoCustomerData.name || window.zohoCustomerData.Full_Name);
     
-    if (hasZohoData) {
-        const btn = document.createElement('button');
-        btn.id = 'showAllConversationsBtn';
-        btn.className = 'btn btn-primary';
-        btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 10px; cursor: pointer;';
+    // HER ZAMAN buton göster
+    const btn = document.createElement('button');
+    btn.id = 'showAllConversationsBtn';
+    btn.className = 'btn btn-primary';
+    btn.style.cssText = 'width: 100%; margin-top: 15px; padding: 10px; cursor: pointer;';
 
+    // Zoho data varsa toggle butonu, yoksa sadece "Tüm konuşmaları göster"
+    if (hasZohoData) {
         btn.textContent = state.showAllConversations
             ? "Sadece bu lead'in konuşmalarını göster"
             : 'Tüm konuşmaları göster';
+    } else {
+        btn.textContent = 'Tüm konuşmaları göster';
+    }
 
-        btn.onclick = async () => {
+    btn.onclick = async () => {
+        if (hasZohoData) {
+            // Zoho data varsa toggle yap
             if (state.showAllConversations) {
                 // Filtrelemeye geri dön
                 state.showAllConversations = false;
@@ -721,12 +728,15 @@ function renderConversations() {
                 // Tüm konuşmaları göster
                 showAllConversations();
             }
-            renderConversations();
-            updateShowAllButton();
-        };
+        } else {
+            // Zoho data yoksa sadece tüm konuşmaları göster
+            showAllConversations();
+        }
+        renderConversations();
+        updateShowAllButton();
+    };
 
-        list.appendChild(btn);
-    }
+    list.appendChild(btn);
 
     updateChatEmptyView();
     updateLeadFilterInfo();
@@ -1414,14 +1424,21 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved state
         loadSavedState();
         
-        // İLK AÇILIŞTA: Zoho lead varsa otomatik filtreleme yap
+        // 🔥 İLK AÇILIŞTA: Zoho lead varsa otomatik filtreleme yap
         console.log('🚀 Sayfa yüklendi...');
         
-        // Zoho lead data varsa ve Sleekflow bağlıysa, otomatik filtreleme yap
-        if (typeof window !== 'undefined' && window.zohoCustomerData && state.sleekflow.connected) {
-            console.log('✅ Zoho lead data mevcut, otomatik filtreleme aktif');
+        // Zoho lead data varsa, otomatik filtreleme aktif et (Sleekflow bağlı olmasa bile)
+        if (typeof window !== 'undefined' && window.zohoCustomerData) {
+            const leadName = window.zohoCustomerData.name || window.zohoCustomerData.Full_Name;
+            if (leadName) {
+                console.log('✅ Zoho lead data mevcut, otomatik filtreleme aktif:', leadName);
+                state.showAllConversations = false;
+                state.filterByZohoLead = true;
+            }
+        } else {
+            console.log('ℹ️ Zoho lead data yok, tüm konuşmalar gösterilecek');
             state.showAllConversations = false;
-            state.filterByZohoLead = true;
+            state.filterByZohoLead = false;
         }
         
         renderConversations(); // İlk render
@@ -1431,12 +1448,18 @@ document.addEventListener('DOMContentLoaded', () => {
             // Start message polling after connection
             if (state.sleekflow.connected) {
                 startMessagePolling();
-                // Zoho lead varsa otomatik filtreleme yap
+                // 🔥 OTOMATİK FİLTRELEME: Zoho lead varsa otomatik filtreleme yap
                 if (typeof window !== 'undefined' && window.zohoCustomerData) {
-                    console.log('✅ Auto-connect sonrası Zoho lead ile filtreleme yapılıyor...');
+                    console.log('✅ Auto-connect sonrası Zoho lead ile otomatik filtreleme yapılıyor...');
                     state.showAllConversations = false;
                     state.filterByZohoLead = true;
                     loadConversations(false); // Konuşmaları yükle ve filtrele
+                } else {
+                    // Zoho lead yoksa, tüm konuşmaları göster
+                    console.log('ℹ️ Zoho lead yok, tüm konuşmalar gösteriliyor');
+                    state.showAllConversations = false;
+                    state.filterByZohoLead = false;
+                    loadConversations(false);
                 }
             }
         });
@@ -1525,13 +1548,30 @@ window.addEventListener('message', handleZohoCallback);
         
         window.zohoCustomerData = event.detail;
         
-        // 🔥 TEK ÇÖZÜM: Yeni lead'e girildiğinde filtre aktif olsun
+        // 🔥 OTOMATİK FİLTRELEME: Yeni lead'e girildiğinde HER ZAMAN filtre aktif olsun
         state.showAllConversations = false;
         state.filterByZohoLead = true;
         
-        // Eğer Sleekflow bağlıysa, hemen konuşmaları yükle ve filtrele
+        console.log('✅ Yeni lead algılandı, otomatik filtreleme aktif:', {
+            leadName: window.zohoCustomerData.name || window.zohoCustomerData.Full_Name,
+            showAllConversations: state.showAllConversations,
+            filterByZohoLead: state.filterByZohoLead
+        });
+        
+        // Eğer konuşmalar zaten yüklenmişse, hemen filtrele
+        if (state.allConversations && state.allConversations.length > 0) {
+            console.log('🔄 Mevcut konuşmalar filtreleniyor...');
+            state.conversations = filterConversationsByZohoLead(state.allConversations);
+            renderConversations();
+            updateChatEmptyView();
+            updateLeadFilterInfo();
+            updateShowAllButton();
+            console.log(`✅ Filtreleme tamamlandı: ${state.conversations.length}/${state.allConversations.length} konuşma`);
+        }
+        
+        // Eğer Sleekflow bağlıysa, konuşmaları yükle ve filtrele
         if (state.sleekflow.connected) {
-            console.log('✅ Zoho lead yüklendi, konuşmalar filtreleniyor...');
+            console.log('✅ Zoho lead yüklendi, konuşmalar yükleniyor ve filtreleniyor...');
             loadConversations(false);
         } else {
             console.log('⏳ Sleekflow henüz bağlı değil, bağlantı sonrası filtrelenecek');
@@ -1561,9 +1601,9 @@ window.addEventListener('message', handleZohoCallback);
                 state.showAllConversations = false;
                 state.filterByZohoLead = true;
                 
-                // Eğer konuşmalar yüklenmişse, hemen filtrele
+                // 🔥 OTOMATİK FİLTRELEME: Eğer konuşmalar yüklenmişse, hemen filtrele
                 if (state.allConversations && state.allConversations.length > 0) {
-                    console.log('🔄 Sayfa yüklendi, mevcut Zoho data ile filtreleme yapılıyor...');
+                    console.log('🔄 Sayfa yüklendi, mevcut Zoho data ile otomatik filtreleme yapılıyor...');
                     state.conversations = filterConversationsByZohoLead(state.allConversations);
                     renderConversations();
                     updateChatEmptyView();
@@ -1572,10 +1612,11 @@ window.addEventListener('message', handleZohoCallback);
                     console.log(`✅ Mevcut Zoho data ile filtrelendi: ${state.conversations.length}/${state.allConversations.length} konuşma`);
                 } else {
                     // Konuşmalar henüz yüklenmemişse, yüklendikten sonra filtrele
-                    console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendikten sonra filtrelenecek...');
+                    console.log('⏳ Konuşmalar henüz yüklenmedi, yüklendikten sonra otomatik filtrelenecek...');
                     state.pendingZohoFilter = true;
-                    // Eğer Sleekflow bağlıysa, hemen yükle
+                    // Eğer Sleekflow bağlıysa, hemen yükle ve filtrele
                     if (state.sleekflow.connected) {
+                        console.log('✅ Sleekflow bağlı, konuşmalar yükleniyor ve filtreleniyor...');
                         loadConversations(false);
                     }
                 }

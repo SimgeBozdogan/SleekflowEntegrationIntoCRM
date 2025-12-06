@@ -186,10 +186,10 @@
                 return;
             }
 
-            // 2) Lead kaydını çek
+            // 2) Lead kaydını çek - Zoho JS SDK büyük harf bekliyor
             const leadResp = await ZOHO.CRM.API.getRecord({
-                entity: module,
-                recordId: recordId
+                Entity: module,
+                RecordID: recordId
             });
 
             console.log("📥 Zoho lead response:", leadResp);
