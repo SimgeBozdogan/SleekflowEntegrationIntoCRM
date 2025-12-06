@@ -163,6 +163,35 @@
         // 🔥 ZOHO'DAN AKTİF LEAD'İ ALIP app.js'YE GÖNDEREN TEK DOĞRU KOD
         // ---------------------------------------------------------
 
+        // 🔥 ZOHO LEAD İSMİNİ DOĞRUDAN DOM'DAN OKUYAN YÖNTEМ
+        function getZohoLeadNameFromDOM() {
+            console.log("🔍 DOM'dan Zoho lead ismi aranıyor...");
+            
+            // Yöntem 1: Sayfanın başlığındaki isim
+            const pageTitle = document.querySelector('[data-testid="FieldRenderer_Full_Name"] .zf-text, .zf-preview-display');
+            if (pageTitle && pageTitle.textContent.trim()) {
+                console.log("✅ DOM Method 1: Lead ismi bulundu:", pageTitle.textContent.trim());
+                return pageTitle.textContent.trim();
+            }
+            
+            // Yöntem 2: Sayfa başlığı
+            const headerElement = document.querySelector('h1, [role="heading"]');
+            if (headerElement && headerElement.textContent.trim() && headerElement.textContent.length < 100) {
+                console.log("✅ DOM Method 2: Lead ismi bulundu:", headerElement.textContent.trim());
+                return headerElement.textContent.trim();
+            }
+            
+            // Yöntem 3: Zoho'nun kullandığı class
+            const zohoName = document.querySelector('[data-field-name="Full_Name"] .field-value, [data-key="Full_Name"]');
+            if (zohoName && zohoName.textContent.trim()) {
+                console.log("✅ DOM Method 3: Lead ismi bulundu:", zohoName.textContent.trim());
+                return zohoName.textContent.trim();
+            }
+            
+            console.warn("⚠️ DOM'dan lead ismi alınamadı");
+            return null;
+        }
+
         ZOHO.embeddedApp.on("PageLoad", async function(data) {
             console.log("🚀 ZOHO PageLoad:", data);
 
@@ -192,56 +221,67 @@
 
             console.log("✅ Lead ID bulundu:", recordId);
 
-            // 2) Lead kaydını çek - timeout ile
-            try {
-                console.log("🔄 Zoho API çağrılıyor, Entity:", module, "RecordID:", recordId);
-                
-                const leadResp = await Promise.race([
-                    ZOHO.CRM.API.getRecord({
-                        Entity: module,
-                        RecordID: recordId
-                    }),
-                    new Promise((_, reject) => 
-                        setTimeout(() => reject(new Error('API timeout')), 5000)
-                    )
-                ]);
+            // 2a) ÖNCE DOM'dan ismi oku (hızlı yöntem)
+            let leadName = getZohoLeadNameFromDOM();
+            
+            // 2b) Eğer DOM'dan alamazsak, Zoho API'sini dene (yavaş yöntem)
+            if (!leadName) {
+                try {
+                    console.log("🔄 Zoho API çağrılıyor, Entity:", module, "RecordID:", recordId);
+                    
+                    const leadResp = await Promise.race([
+                        ZOHO.CRM.API.getRecord({
+                            Entity: module,
+                            RecordID: recordId
+                        }),
+                        new Promise((_, reject) => 
+                            setTimeout(() => reject(new Error('API timeout')), 3000)
+                        )
+                    ]);
 
-                console.log("📥 Zoho lead response:", leadResp);
+                    console.log("📥 Zoho lead response:", leadResp);
 
-                if (!leadResp || !leadResp.data || !leadResp.data[0]) {
-                    console.error("❌ Lead data bulunamadı, response:", leadResp);
-                    return;
+                    if (leadResp && leadResp.data && leadResp.data[0]) {
+                        const lead = leadResp.data[0];
+                        leadName = lead.Full_Name 
+                                || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim()
+                                || lead.Company
+                                || "";
+                        console.log("✅ API'den Lead ismi alındı:", leadName);
+                    }
+                } catch(err) {
+                    console.warn("⚠️ API'den lead alınamadı:", err.message);
                 }
-
-                const lead = leadResp.data[0];
-                console.log("✅ Lead bulundu:", lead);
-
-                // 3) UI'nin beklediği temiz JSON formatını oluştur
-                const payload = {
-                    id: lead.id,
-                    name: lead.Full_Name 
-                            || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim()
-                            || lead.Company
-                            || "",
-                    phone: lead.Phone || lead.Mobile || "",
-                    email: lead.Email || ""
-                };
-
-                console.log("📌 Hazırlanan payload:", payload);
-
-                // 4) UI tarafı için event gönder - localStorage'a da koy (iframe içinde erişim için)
-                window.zohoCustomerData = payload;
-                localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
-                console.log("✅ localStorage'a kaydedildi");
-
-                const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
-                window.dispatchEvent(evt);
-                document.dispatchEvent(evt);
-
-                console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
-            } catch(err) {
-                console.error("❌ Zoho lead çekme hatası:", err.message, err);
             }
+
+            if (!leadName || leadName.trim().length === 0) {
+                console.error("❌ Lead ismi bulunamadı (ne DOM ne API)");
+                return;
+            }
+
+            console.log("✅ Lead ismi bulundu:", leadName);
+
+            // 3) Payload oluştur
+            const payload = {
+                id: recordId,
+                name: leadName.trim(),
+                phone: "",
+                email: ""
+            };
+
+            console.log("📌 Hazırlanan payload:", payload);
+
+            // 4) localStorage'a kaydet
+            window.zohoCustomerData = payload;
+            localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
+            console.log("✅ localStorage'a kaydedildi");
+
+            // 5) Event gönder
+            const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+            window.dispatchEvent(evt);
+            document.dispatchEvent(evt);
+
+            console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
         });
 
         ZOHO.embeddedApp.init();
