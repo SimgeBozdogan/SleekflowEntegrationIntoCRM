@@ -201,28 +201,32 @@
         // 🔥 ZOHO'DAN AKTİF LEAD'İ ALIP app.js'YE GÖNDEREN TEK DOĞRU KOD
         // ---------------------------------------------------------
 
-        // 🔥 ZOHO LEAD İSMİNİ DOĞRUDAN DOM'DAN OKUYAN YÖNTEМ
+        // 🔥 ZOHO LEAD İSMİNİ DOĞRUDAN DOM'DAN OKUYAN YÖNTEM
         function getZohoLeadNameFromDOM() {
             console.log("🔍 DOM'dan Zoho lead ismi aranıyor...");
             
-            // Yöntem 1: Sayfanın başlığındaki isim
-            const pageTitle = document.querySelector('[data-testid="FieldRenderer_Full_Name"] .zf-text, .zf-preview-display');
-            if (pageTitle && pageTitle.textContent.trim()) {
-                console.log("✅ DOM Method 1: Lead ismi bulundu:", pageTitle.textContent.trim());
-                return pageTitle.textContent.trim();
+            // Yöntem 1: document.title'dan oku (en güvenilir)
+            // Format: "Adil Yaman (Lead) - Zoho CRM"
+            const titleMatch = document.title.match(/^([^(]+)\s*\(/);
+            if (titleMatch && titleMatch[1]) {
+                const leadName = titleMatch[1].trim();
+                if (leadName && leadName.length > 0 && leadName.length < 100) {
+                    console.log("✅ Title'dan lead ismi bulundu:", leadName);
+                    return leadName;
+                }
             }
             
-            // Yöntem 2: Sayfa başlığı
+            // Yöntem 2: Sayfanın başlığındaki isim (h1)
             const headerElement = document.querySelector('h1, [role="heading"]');
             if (headerElement && headerElement.textContent.trim() && headerElement.textContent.length < 100) {
-                console.log("✅ DOM Method 2: Lead ismi bulundu:", headerElement.textContent.trim());
+                console.log("✅ H1'den lead ismi bulundu:", headerElement.textContent.trim());
                 return headerElement.textContent.trim();
             }
             
             // Yöntem 3: Zoho'nun kullandığı class
             const zohoName = document.querySelector('[data-field-name="Full_Name"] .field-value, [data-key="Full_Name"]');
             if (zohoName && zohoName.textContent.trim()) {
-                console.log("✅ DOM Method 3: Lead ismi bulundu:", zohoName.textContent.trim());
+                console.log("✅ Field'dan lead ismi bulundu:", zohoName.textContent.trim());
                 return zohoName.textContent.trim();
             }
             
