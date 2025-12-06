@@ -349,7 +349,7 @@
                     if (leadName && leadName.length > 0 && leadName.length < 100) {
                         console.log("✅ Title'dan Lead ismi bulundu:", leadName);
                         
-                        // localStorage'a kaydet
+                        // window.zohoCustomerData'ya kaydet (localStorage yerine)
                         const payload = {
                             id: "unknown",
                             name: leadName,
@@ -358,14 +358,13 @@
                         };
                         
                         window.zohoCustomerData = payload;
-                        localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
-                        console.log("✅ localStorage'a kaydedildi:", payload);
+                        console.log("✅ window.zohoCustomerData'ya kaydedildi:", payload);
                         
-                        // Event gönder
+                        // Event gönder - app.js'nin dinlediği event
                         const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
                         window.dispatchEvent(evt);
                         document.dispatchEvent(evt);
-                        console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ (Title'dan)!");
+                        console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
                         
                         return true;
                     }

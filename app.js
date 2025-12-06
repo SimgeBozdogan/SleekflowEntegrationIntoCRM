@@ -496,19 +496,9 @@ async function loadConversations(silent = false) {
 
 // Zoho lead bilgisine göre konuşmaları filtrele (İSİM BAZLI - BASİT ARAMA)
 function filterConversationsByZohoLead(conversations) {
-    // localStorage'dan Zoho data'yı oku
+    // window.zohoCustomerData'yı oku (localStorage değil!)
     let zohoData = window.zohoCustomerData;
-    if (!zohoData) {
-        try {
-            const stored = localStorage.getItem('zohoCustomerData');
-            if (stored) {
-                zohoData = JSON.parse(stored);
-                console.log('📦 filterConversationsByZohoLead: localStorage\'dan Zoho data yüklendi');
-            }
-        } catch (err) {
-            console.warn('⚠️ localStorage okunamadı');
-        }
-    }
+    console.log('🔍 zohoData kontrol:', zohoData);
 
     if (!zohoData) {
         console.log('⚠️ filterConversationsByZohoLead: Zoho customer data yok');
