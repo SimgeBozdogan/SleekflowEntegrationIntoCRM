@@ -637,8 +637,15 @@
                 const leadName = urlParams.get('leadName');
                 
                 if (leadName) {
-                    window.zohoCustomerData = { name: decodeURIComponent(leadName) };
+                    const payload = { name: decodeURIComponent(leadName), id: 'url-based' };
+                    window.zohoCustomerData = payload;
                     console.log("✅ URL'den window.zohoCustomerData set:", window.zohoCustomerData);
+                    
+                    // EVENT GÖNDER - app.js'nin filtreleme yapması için!
+                    const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+                    window.dispatchEvent(evt);
+                    document.dispatchEvent(evt);
+                    console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
                     return;
                 }
                 
@@ -654,8 +661,15 @@
                         .then(r => r.json())
                         .then(data => {
                             if (data.success && data.data.name) {
-                                window.zohoCustomerData = { name: data.data.name };
+                                const payload = { name: data.data.name, id: recordId };
+                                window.zohoCustomerData = payload;
                                 console.log("✅ API'den window.zohoCustomerData set:", window.zohoCustomerData);
+                                
+                                // EVENT GÖNDER
+                                const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+                                window.dispatchEvent(evt);
+                                document.dispatchEvent(evt);
+                                console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
                             }
                         })
                         .catch(e => console.log("⚠️ API hatası:", e));
