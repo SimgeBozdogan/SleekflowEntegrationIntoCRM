@@ -193,7 +193,12 @@
         }
 
         ZOHO.embeddedApp.on("PageLoad", async function(data) {
-            console.log("🚀 ZOHO PageLoad:", data);
+            console.log("🚀 ZOHO PageLoad tetiklendi! Data:", data);
+            localStorage.setItem('pageLoadDebug', JSON.stringify({
+                fired: true,
+                time: new Date().toISOString(),
+                data: data
+            }));
 
             let module = data.Entity || "Leads";
             let recordId = data.EntityId ? data.EntityId[0] : null;
@@ -287,6 +292,7 @@
 
         ZOHO.embeddedApp.init();
         console.log("🔥 Zoho Embedded App INIT tamam");
+        localStorage.setItem('zohoInitComplete', 'true');
         
         // TEST MODU: URL parametrelerinden test verisi al
         // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
