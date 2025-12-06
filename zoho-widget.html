@@ -770,30 +770,40 @@
                     return;
                 }
                 
-                // Fallback: window.location.href'den recordId al
-                const url = window.location.href;
-                const recordMatch = url.match(/leadId=(\d+)/);
-                if (recordMatch) {
-                    const recordId = recordMatch[1];
-                    console.log("📌 URL'den recordId bulundu:", recordId);
-                    
-                    // Backend API'ye sor
-                    fetch(`/api/zoho/lead/${recordId}`)
-                        .then(r => r.json())
-                        .then(data => {
-                            if (data.success && data.data.name) {
-                                const payload = { name: data.data.name, id: recordId };
-                                window.zohoCustomerData = payload;
-                                console.log("✅ API'den window.zohoCustomerData set:", window.zohoCustomerData);
-                                
-                                // EVENT GÖNDER
-                                const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
-                                window.dispatchEvent(evt);
-                                document.dispatchEvent(evt);
-                                console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
-                            }
-                        })
-                        .catch(e => console.log("⚠️ API hatası:", e));
+                // 🔥 YENİ: Zoho iframe'de miyiz kontrol et
+                if (window.self !== window.top) {
+                    console.log("📌 Zoho iframe'de algılandı, parent URL kontrol ediliyor...");
+                    try {
+                        const parentURL = window.parent.location.href;
+                        console.log("Parent URL:", parentURL);
+                        
+                        // Lead ID'yi URL'den al: /Leads/3519633000086711022
+                        const leadIdMatch = parentURL.match(/\/Leads\/(\d+)/);
+                        if (leadIdMatch) {
+                            const leadId = leadIdMatch[1];
+                            console.log("📌 Lead ID bulundu:", leadId);
+                            
+                            // Backend API'ye sor
+                            fetch(`/api/zoho/lead/${leadId}`)
+                                .then(r => r.json())
+                                .then(data => {
+                                    if (data.success && data.data.name) {
+                                        const payload = { name: data.data.name, id: leadId };
+                                        window.zohoCustomerData = payload;
+                                        console.log("✅ Zoho Lead API'den window.zohoCustomerData set:", window.zohoCustomerData);
+                                        
+                                        // EVENT GÖNDER
+                                        const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+                                        window.dispatchEvent(evt);
+                                        document.dispatchEvent(evt);
+                                        console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ!");
+                                    }
+                                })
+                                .catch(e => console.log("⚠️ API hatası:", e));
+                        }
+                    } catch(e) {
+                        console.log("⚠️ Parent URL erişilemedi (CORS):", e);
+                    }
                 }
             } catch(err) {
                 console.log("⚠️ Error:", err);
