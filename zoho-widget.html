@@ -336,6 +336,53 @@
         console.log("🔥 Zoho Embedded App INIT tamam");
         localStorage.setItem('zohoInitComplete', 'true');
         
+        // 🔥 FALLBACK: Title'dan doğrudan ismi al
+        function extractAndSaveLeadNameFromTitle() {
+            try {
+                const title = document.title;
+                console.log("📖 Page Title:", title);
+                
+                // Format: "Adil Yaman (Lead) - Zoho CRM"
+                const match = title.match(/^([^(]+)\s*\(/);
+                if (match && match[1]) {
+                    const leadName = match[1].trim();
+                    if (leadName && leadName.length > 0 && leadName.length < 100) {
+                        console.log("✅ Title'dan Lead ismi bulundu:", leadName);
+                        
+                        // localStorage'a kaydet
+                        const payload = {
+                            id: "unknown",
+                            name: leadName,
+                            phone: "",
+                            email: ""
+                        };
+                        
+                        window.zohoCustomerData = payload;
+                        localStorage.setItem('zohoCustomerData', JSON.stringify(payload));
+                        console.log("✅ localStorage'a kaydedildi:", payload);
+                        
+                        // Event gönder
+                        const evt = new CustomEvent("zohoLeadDataLoaded", { detail: payload });
+                        window.dispatchEvent(evt);
+                        document.dispatchEvent(evt);
+                        console.log("🎉 zohoLeadDataLoaded EVENT GÖNDERİLDİ (Title'dan)!");
+                        
+                        return true;
+                    }
+                }
+            } catch(err) {
+                console.error("❌ Title'dan isim alınamadı:", err);
+            }
+            return false;
+        }
+        
+        // Hemen çalıştır
+        setTimeout(extractAndSaveLeadNameFromTitle, 500);
+        // Sayfa yüklendiğinde tekrar çalıştır
+        window.addEventListener('load', extractAndSaveLeadNameFromTitle);
+        // Her 2 saniyede bir kontrol et (lead değiştiğinde)
+        setInterval(extractAndSaveLeadNameFromTitle, 2000);
+        
         // TEST MODU: URL parametrelerinden test verisi al
         // Örnek: /widget?testPhone=905551234567&testEmail=test@example.com&testName=Test Lead
         function checkTestMode() {
