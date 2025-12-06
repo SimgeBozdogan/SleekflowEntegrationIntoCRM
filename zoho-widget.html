@@ -244,6 +244,7 @@
                     if (leadResp && leadResp.data && leadResp.data[0]) {
                         const lead = leadResp.data[0];
                         leadName = lead.Full_Name 
+                                || lead.Last_Name  // Zoho'nun özelleştirdiği alan
                                 || `${lead.First_Name || ""} ${lead.Last_Name || ""}`.trim()
                                 || lead.Company
                                 || "";
