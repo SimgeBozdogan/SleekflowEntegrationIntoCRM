@@ -160,6 +160,43 @@
     <script src="https://crm.zoho.com/crm/javascript/ZohoEmbeddedAppSDK.js"></script>
     
     <script>
+        // SDK yüklendiğini kontrol et
+        console.log("🔍 SDK kontrol ediliyor...");
+        
+        // Eğer SDK yüklenmediyse, fallback
+        if (typeof ZOHO === 'undefined') {
+            console.warn("⚠️ ZOHO SDK yüklenemedi, fallback moduna geçiliyor");
+            window.ZOHO = {
+                embeddedApp: {
+                    on: function(event, callback) {
+                        console.log("📌 Fallback: PageLoad simülasyonu");
+                        // Fallback: localStorage'dan data oku
+                        setTimeout(() => {
+                            const existingData = localStorage.getItem('zohoCustomerData');
+                            if (existingData) {
+                                callback(JSON.parse(existingData));
+                            }
+                        }, 1000);
+                    },
+                    init: function() {
+                        console.log("📌 Fallback: Init");
+                    }
+                },
+                CRM: {
+                    API: {
+                        getRecordId: function() {
+                            return Promise.reject(new Error("SDK not available"));
+                        },
+                        getRecord: function() {
+                            return Promise.reject(new Error("SDK not available"));
+                        }
+                    }
+                }
+            };
+        }
+        
+        console.log("✅ ZOHO nesnesi hazır:", typeof ZOHO);
+        
         // ---------------------------------------------------------
         // 🔥 ZOHO'DAN AKTİF LEAD'İ ALIP app.js'YE GÖNDEREN TEK DOĞRU KOD
         // ---------------------------------------------------------
