@@ -1732,3 +1732,20 @@ window.addEventListener('message', handleZohoCallback);
     }
 })();
 
+// 🔥 OTOMATİK FİLTRELEME - HER SANİYE KONTROL ET
+setInterval(function() {
+    if (window.zohoCustomerData && window.zohoCustomerData.name) {
+        const leadName = window.zohoCustomerData.name;
+        
+        // Eğer filtre açık değilse, aç
+        if (!state.filterByZohoLead && state.allConversations.length > 0) {
+            console.log('🔥 OTOMATİK FİLTRELEME BAŞLATILIYOR:', leadName);
+            state.filterByZohoLead = true;
+            state.showAllConversations = false;
+            state.conversations = filterConversationsByZohoLead(state.allConversations);
+            renderConversations();
+            updateLeadFilterInfo();
+        }
+    }
+}, 1000);
+
